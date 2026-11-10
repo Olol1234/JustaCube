@@ -45,16 +45,26 @@ public class CubeRoller : MonoBehaviour
             Release(dt);
             return;
         }
-        direction = SnapToCardinal(direction);
+
+        // Two adjacent keys (e.g. A+W) give a main and a secondary cardinal direction.
+        Vector3 primary = SnapToCardinal(direction);
+        Vector3 secondary = GetSecondaryDirection(direction, primary);
 
         // Resting flat: the key chooses which edge the cube tips over.
-        if (tiltAngle <= 0f && tiltVelocity <= 0f) BeginTilt(direction);
+        if (tiltAngle <= 0f && tiltVelocity <= 0f) BeginTilt(primary);
+
+        bool holdsTiltDir = tiltDir == primary || tiltDir == secondary;
+        bool holdsOpposite = -tiltDir == primary || -tiltDir == secondary;
 
         float push = 0f;
-        if (direction == tiltDir) push = 1f;
-        else if (direction == -tiltDir) push = -1f;
+        if (holdsTiltDir) push = 1f;
+        else if (holdsOpposite) push = -1f;
 
-        Step(push, direction, dt);
+        // Zigzag: with two keys held, each landing switches to the other key's direction,
+        // so the cube staircases diagonally.
+        Vector3 nextDir = (secondary != Vector3.zero && tiltDir == primary) ? secondary : primary;
+
+        Step(push, nextDir, dt);
     }
 
     // Call every frame no key is held. Only gravity (and leftover momentum) acts on the cube.
@@ -71,9 +81,24 @@ public class CubeRoller : MonoBehaviour
         Step(0f, Vector3.zero, dt);
     }
 
-    // One physics step of the tilt. push is +1 / 0 / -1 along tiltDir; heldDir is the key being
-    // held (zero when none) and decides where the cube heads next if it flips or lands.
-    private void Step(float push, Vector3 heldDir, float dt)
+    // The weaker axis of the input as a cardinal direction, or zero if it is too weak to count
+    // as a second key. "Too weak" is set by diagonalThreshold (weaker / stronger component).
+    private Vector3 GetSecondaryDirection(Vector3 direction, Vector3 primary)
+    {
+        bool primaryIsX = primary.x != 0f;
+        float main = primaryIsX ? direction.x : direction.z;
+        float other = primaryIsX ? direction.z : direction.x;
+
+        if (Mathf.Abs(other) < Mathf.Abs(main) * settings.diagonalThreshold) return Vector3.zero;
+
+        return primaryIsX
+            ? new Vector3(0f, 0f, Mathf.Sign(other))
+            : new Vector3(Mathf.Sign(other), 0f, 0f);
+    }
+
+    // One physics step of the tilt. push is +1 / 0 / -1 along tiltDir; nextDir is the direction
+    // the cube heads in after it lands (zero keeps the current one).
+    private void Step(float push, Vector3 nextDir, float dt)
     {
         // Gravity pulls flat below 45 degrees and over the edge above it (unstable balance at 45).
         float gravity = settings.gravityAcceleration * Mathf.Sin((tiltAngle - 45f) * Mathf.Deg2Rad);
@@ -85,20 +110,21 @@ public class CubeRoller : MonoBehaviour
 
         if (tiltAngle >= 90f)
         {
-            Land(heldDir);
+            Land(nextDir);
             return;
         }
 
         if (tiltAngle <= 0f)
         {
-            if (heldDir != Vector3.zero && heldDir == -tiltDir)
+            if (push < 0f)
             {
                 // Rocked back through flat while holding the opposite key: tip the other way.
                 float overshoot = -tiltAngle;
                 float speed = -tiltVelocity;
+                Vector3 flipDir = -tiltDir;
                 tiltAngle = 0f;
                 ApplyTilt();
-                BeginTilt(heldDir);
+                BeginTilt(flipDir);
                 tiltAngle = overshoot;
                 tiltVelocity = Mathf.Max(0f, speed);
             }
@@ -122,7 +148,7 @@ public class CubeRoller : MonoBehaviour
 
     // The cube tipped all the way over: clean up float error, then re-base so the new face is
     // the flat reference. Tilt velocity is kept, so holding a key keeps the cube walking.
-    private void Land(Vector3 heldDir)
+    private void Land(Vector3 nextDir)
     {
         float overshoot = tiltAngle - 90f;
         Vector3 landedDir = tiltDir;
@@ -131,7 +157,7 @@ public class CubeRoller : MonoBehaviour
         ApplyTilt();
         transform.rotation = SnapRotation(transform.rotation);
 
-        BeginTilt(heldDir != Vector3.zero ? heldDir : landedDir);
+        BeginTilt(nextDir != Vector3.zero ? nextDir : landedDir);
         tiltAngle = Mathf.Clamp(overshoot, 0f, 90f);
         ApplyTilt();
 

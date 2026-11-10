@@ -22,6 +22,9 @@ public class CubeMovementSettings : ScriptableObject
     [Tooltip("Cap on tilt speed (deg/s), so a long fall can't get out of hand.")]
     [Min(1f)] public float maxTiltSpeed = 360f;
 
+    [Tooltip("How strong the weaker input axis must be, compared to the stronger one, to count as a second key (diagonal zigzag). 1 = needs perfectly equal, lower = easier to trigger.")]
+    [Range(0.1f, 1f)] public float diagonalThreshold = 0.5f;
+
     [Header("Hold to tilt (legacy, no longer used by CubeRoller)")]
     [Tooltip("Degrees per second the cube tilts while a key is held, and also how fast it falls under gravity.")]
     [Min(1f)] public float tiltSpeed = 90f;
