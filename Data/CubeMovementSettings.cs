@@ -25,6 +25,25 @@ public class CubeMovementSettings : ScriptableObject
     [Tooltip("How strong the weaker input axis must be, compared to the stronger one, to count as a second key (diagonal zigzag). 1 = needs perfectly equal, lower = easier to trigger.")]
     [Range(0.1f, 1f)] public float diagonalThreshold = 0.5f;
 
+    [Header("Jump")]
+    [Tooltip("Jump height in cube heights. 1.7 clears a 1-block step but not a 2-block wall.")]
+    [Min(0.1f)] public float jumpHeight = 1.7f;
+
+    [Tooltip("Jumps allowed before landing. 2 = double jump. Walking off a ledge counts as one used.")]
+    [Min(1)] public int maxJumps = 2;
+
+    [Tooltip("Downward acceleration (m/s^2) while airborne.")]
+    [Min(0.1f)] public float airGravity = 30f;
+
+    [Tooltip("Horizontal speed (m/s) of a jump when a direction is held. No direction = straight up.")]
+    [Min(0f)] public float jumpHorizontalSpeed = 4f;
+
+    [Tooltip("Spin speed (deg/s) the cube tumbles at when jumping with a direction. The partial turn at landing makes it stumble.")]
+    [Min(0f)] public float jumpSpinSpeed = 360f;
+
+    [Tooltip("Cap on fall speed (m/s), so the ground probe can't be skipped in one frame.")]
+    [Min(1f)] public float maxFallSpeed = 25f;
+
     [Header("Ground detection")]
     [Tooltip("Layers that count as ground. Keep the player cube off these layers.")]
     public LayerMask groundMask = ~0;

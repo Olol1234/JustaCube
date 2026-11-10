@@ -17,8 +17,9 @@ public class GroundProbe : MonoBehaviour
 
     private float HalfSize => transform.localScale.x * 0.5f;
 
-    // Center-to-corner distance is the farthest the center can sit above ground when tilted.
-    private float Reach => HalfSize * Mathf.Sqrt(2f) + settings.groundSkin;
+    // Center-to-corner distance (half the diagonal) is the farthest the center can sit above
+    // ground, e.g. when the cube lands on a corner.
+    private float Reach => HalfSize * Mathf.Sqrt(3f) + settings.groundSkin;
 
     private void Update()
     {

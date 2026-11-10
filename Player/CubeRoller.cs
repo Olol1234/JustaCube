@@ -4,14 +4,22 @@ using UnityEngine;
 
 // Rolls the cube one face at a time by rotating around its bottom edge.
 // Knows nothing about input - anything (player, AI, replay) can call TryRoll.
+[RequireComponent(typeof(GroundProbe))]
 public class CubeRoller : MonoBehaviour
 {
     [SerializeField] private CubeMovementSettings settings;
 
     public bool IsRolling { get; private set; }
+    public bool IsAirborne { get; private set; }
 
     public event Action<Vector3> RollStarted;
     public event Action<Vector3> RollCompleted;
+    public event Action Landed;
+
+    private GroundProbe groundProbe;
+    private Vector3 airVelocity;
+    private float verticalVelocity;
+    private int jumpsUsed;
 
     private Vector3 tiltDir;
     private Vector3 tiltStartPos;
@@ -21,9 +29,147 @@ public class CubeRoller : MonoBehaviour
 
     private float HalfSize => transform.localScale.x * 0.5f;
 
+    private void Awake()
+    {
+        groundProbe = GetComponent<GroundProbe>();
+    }
+
+    private void Update()
+    {
+        if (settings == null) return;
+
+        if (IsAirborne)
+        {
+            StepAir(Time.deltaTime);
+            return;
+        }
+
+        if (IsRolling) return;
+
+        // Walked or tipped off a ledge: the center is no longer over ground.
+        groundProbe.Probe();
+        if (!groundProbe.IsSupported) StartFall();
+    }
+
+    // Jumps in the given world direction, or straight up if it is zero. Works from the ground,
+    // and once more in the air (a double jump) that can change direction. Returns false if no
+    // jumps are left.
+    public bool Jump(Vector3 direction)
+    {
+        if (settings == null || jumpsUsed >= settings.maxJumps) return false;
+
+        if (!IsAirborne)
+        {
+            if (IsRolling) return false;
+            groundProbe.Probe();
+            if (!groundProbe.IsGrounded) return false;
+            IsAirborne = true;
+        }
+
+        jumpsUsed++;
+
+        // v = sqrt(2 * g * h): tune the jump by its height instead of guessing a speed.
+        float height = settings.jumpHeight * transform.localScale.y;
+        verticalVelocity = Mathf.Sqrt(2f * settings.airGravity * height);
+
+        direction.y = 0f;
+        if (direction.sqrMagnitude < 0.0001f)
+        {
+            airVelocity = Vector3.zero;
+            return true;
+        }
+
+        airVelocity = direction.normalized * settings.jumpHorizontalSpeed;
+
+        // Tumble toward the jump direction. A new direction means a new spin axis.
+        Vector3 spinDir = SnapToCardinal(direction);
+        if (spinDir != tiltDir) tiltVelocity = settings.jumpSpinSpeed;
+        else tiltVelocity = Mathf.Max(tiltVelocity, settings.jumpSpinSpeed);
+        tiltDir = spinDir;
+        return true;
+    }
+
+    // Left the ground without jumping. Counts as one jump used.
+    private void StartFall()
+    {
+        IsAirborne = true;
+        airVelocity = Vector3.zero;
+        verticalVelocity = 0f;
+        jumpsUsed = Mathf.Max(jumpsUsed, 1);
+    }
+
+    private void StepAir(float dt)
+    {
+        verticalVelocity = Mathf.Max(verticalVelocity - settings.airGravity * dt, -settings.maxFallSpeed);
+        transform.position += (airVelocity + Vector3.up * verticalVelocity) * dt;
+
+        // Keep tumbling around the center on the same axis the ground tilt used.
+        if (tiltDir != Vector3.zero)
+            transform.Rotate(Vector3.Cross(Vector3.up, tiltDir), tiltVelocity * dt, Space.World);
+
+        if (verticalVelocity > 0f) return;
+
+        groundProbe.Probe();
+        if (groundProbe.IsGrounded && LowestPointY() <= groundProbe.GroundHeight) LandFromAir();
+    }
+
+    // World Y of the lowest point of the (possibly tilted) cube.
+    private float LowestPointY()
+    {
+        float extent = HalfSize * (Mathf.Abs(transform.right.y) + Mathf.Abs(transform.up.y) + Mathf.Abs(transform.forward.y));
+        return transform.position.y - extent;
+    }
+
+    // Touched down. Find the nearest flat orientation and how far the cube is tipped away from
+    // it, then hand over to the normal tilt code, which decides if it falls back or tips over.
+    private void LandFromAir()
+    {
+        Vector3 spinAxis = tiltDir != Vector3.zero ? Vector3.Cross(Vector3.up, tiltDir) : Vector3.zero;
+
+        Quaternion flat = SnapRotation(transform.rotation);
+        (transform.rotation * Quaternion.Inverse(flat)).ToAngleAxis(out float angle, out Vector3 axis);
+        if (angle > 180f)
+        {
+            angle = 360f - angle;
+            axis = -axis;
+        }
+
+        // Only a tip around a horizontal axis can be continued as a tilt.
+        axis.y = 0f;
+        if (angle < 0.5f || axis.sqrMagnitude < 0.0001f)
+        {
+            angle = 0f;
+            axis = spinAxis != Vector3.zero ? spinAxis : Vector3.right;
+        }
+        axis.Normalize();
+
+        // Keep the spin direction relative to the (possibly flipped) tilt axis.
+        tiltVelocity = spinAxis != Vector3.zero ? tiltVelocity * Mathf.Sign(Vector3.Dot(spinAxis, axis)) : 0f;
+
+        // Cross(axis, up) is the direction whose tilt rotates around this axis.
+        tiltDir = SnapToCardinal(Vector3.Cross(axis, Vector3.up));
+        tiltAngle = angle;
+        tiltStartRot = flat;
+
+        // Solve for the flat-reference position that makes ApplyTilt reproduce the current
+        // center, so the cube doesn't pop. Then rest the pivot edge on the ground.
+        Vector3 v = (tiltDir + Vector3.down) * HalfSize;
+        Quaternion step = Quaternion.AngleAxis(angle, Vector3.Cross(Vector3.up, tiltDir));
+        tiltStartPos = transform.position + step * v - v;
+        tiltStartPos.y = groundProbe.GroundHeight + HalfSize;
+
+        IsAirborne = false;
+        verticalVelocity = 0f;
+        airVelocity = Vector3.zero;
+        jumpsUsed = 0;
+        ApplyTilt();
+
+        Landed?.Invoke();
+    }
+
     public bool TryRoll(Vector3 direction)
     {
-        if (IsRolling || settings == null) return false;
+        if (IsRolling || IsAirborne || settings == null) return false;
 
         direction.y = 0f;
         if (direction.sqrMagnitude < 0.0001f) return false;
@@ -37,7 +183,7 @@ public class CubeRoller : MonoBehaviour
     // (and over to the other side once flat), a sideways key applies no push so gravity decides.
     public void Hold(Vector3 direction, float dt)
     {
-        if (IsRolling || settings == null) return;
+        if (IsRolling || IsAirborne || settings == null) return;
 
         direction.y = 0f;
         if (direction.sqrMagnitude < 0.0001f)
@@ -70,7 +216,7 @@ public class CubeRoller : MonoBehaviour
     // Call every frame no key is held. Only gravity (and leftover momentum) acts on the cube.
     public void Release(float dt)
     {
-        if (IsRolling || settings == null) return;
+        if (IsRolling || IsAirborne || settings == null) return;
 
         if (tiltAngle <= 0f && tiltVelocity <= 0f)
         {
