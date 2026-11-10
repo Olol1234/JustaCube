@@ -18,8 +18,27 @@ public class PlayerCubeInput : MonoBehaviour
             cameraTransform = Camera.main.transform;
     }
 
-    private void OnEnable() => input?.Enable();
-    private void OnDisable() => input?.Disable();
+    private void OnEnable()
+    {
+        if (input == null) return;
+        input.Enable();
+        input.JumpPerformed += OnJump;
+    }
+
+    private void OnDisable()
+    {
+        if (input == null) return;
+        input.JumpPerformed -= OnJump;
+        input.Disable();
+    }
+
+    // Holding a direction jumps that way (camera-relative); no direction jumps straight up.
+    private void OnJump()
+    {
+        Vector2 move = input.Move;
+        Vector3 direction = move.magnitude < settings.inputDeadzone ? Vector3.zero : ToWorldDirection(move);
+        roller.Jump(direction);
+    }
 
     private void Update()
     {
