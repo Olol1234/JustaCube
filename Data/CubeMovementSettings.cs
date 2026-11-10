@@ -25,6 +25,13 @@ public class CubeMovementSettings : ScriptableObject
     [Tooltip("How strong the weaker input axis must be, compared to the stronger one, to count as a second key (diagonal zigzag). 1 = needs perfectly equal, lower = easier to trigger.")]
     [Range(0.1f, 1f)] public float diagonalThreshold = 0.5f;
 
+    [Header("Ground detection")]
+    [Tooltip("Layers that count as ground. Keep the player cube off these layers.")]
+    public LayerMask groundMask = ~0;
+
+    [Tooltip("Extra distance (m) added to the probe reach so it doesn't flicker at the boundary.")]
+    [Min(0f)] public float groundSkin = 0.05f;
+
     [Header("Hold to tilt (legacy, no longer used by CubeRoller)")]
     [Tooltip("Degrees per second the cube tilts while a key is held, and also how fast it falls under gravity.")]
     [Min(1f)] public float tiltSpeed = 90f;
