@@ -10,14 +10,17 @@ public class InputReader : ScriptableObject
     [SerializeField] private InputActionAsset actions;
     [SerializeField] private string moveActionPath = "Player/Move";
     [SerializeField] private string lookActionPath = "Player/Look";
+    [SerializeField] private string jumpActionPath = "Player/Jump";
 
     public event Action<Vector2> MoveChanged;
+    public event Action JumpPerformed;
 
     public Vector2 Move => moveAction != null ? moveAction.ReadValue<Vector2>() : Vector2.zero;
     public Vector2 Look => lookAction != null ? lookAction.ReadValue<Vector2>() : Vector2.zero;
 
     private InputAction moveAction;
     private InputAction lookAction;
+    private InputAction jumpAction;
     private int users;
 
     // Ref-counted so several listeners can share one reader safely.
@@ -27,11 +30,15 @@ public class InputReader : ScriptableObject
 
         moveAction = actions.FindAction(moveActionPath, throwIfNotFound: true);
         lookAction = actions.FindAction(lookActionPath, throwIfNotFound: true);
+        jumpAction = actions.FindAction(jumpActionPath, throwIfNotFound: true);
 
         moveAction.performed += OnMove;
         moveAction.canceled += OnMove;
         moveAction.Enable();
         lookAction.Enable();
+        jumpAction = actions.FindAction(jumpActionPath, throwIfNotFound: true);
+        jumpAction.performed += OnJump;
+        jumpAction.Enable();
     }
 
     public void Disable()
@@ -42,9 +49,13 @@ public class InputReader : ScriptableObject
         moveAction.canceled -= OnMove;
         moveAction.Disable();
         lookAction.Disable();
+        jumpAction.performed -= OnJump;
+        jumpAction.Disable();
         moveAction = null;
         lookAction = null;
+        jumpAction = null;
     }
 
     private void OnMove(InputAction.CallbackContext ctx) => MoveChanged?.Invoke(ctx.ReadValue<Vector2>());
+    private void OnJump(InputAction.CallbackContext ctx) => JumpPerformed?.Invoke();
 }
