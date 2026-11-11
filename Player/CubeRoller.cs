@@ -218,7 +218,7 @@ public class CubeRoller : MonoBehaviour
     // Pushes the cube while the player holds a direction key. Call every frame the key is held.
     // Same direction as the current tilt pushes it over, the opposite direction pushes it back
     // (and over to the other side once flat), a sideways key applies no push so gravity decides.
-    public void Hold(Vector3 direction, float dt)
+    public void Hold(Vector3 direction, float dt, bool sprint = false)
     {
         if (IsRolling || IsAirborne || settings == null) return;
 
@@ -234,7 +234,11 @@ public class CubeRoller : MonoBehaviour
         Vector3 secondary = GetSecondaryDirection(direction, primary);
 
         // Resting flat: the key chooses which edge the cube tips over.
-        if (tiltAngle <= 0f && tiltVelocity <= 0f) BeginTilt(primary);
+        if (tiltAngle <= 0f && tiltVelocity <= 0f)
+        {
+            BeginTilt(primary);
+            tiltVelocity = settings.startKick;
+        }
 
         bool holdsTiltDir = tiltDir == primary || tiltDir == secondary;
         bool holdsOpposite = -tiltDir == primary || -tiltDir == secondary;
@@ -247,7 +251,7 @@ public class CubeRoller : MonoBehaviour
         // so the cube staircases diagonally.
         Vector3 nextDir = (secondary != Vector3.zero && tiltDir == primary) ? secondary : primary;
 
-        Step(push, nextDir, dt);
+        Step(push, nextDir, dt, sprint);
     }
 
     // Call every frame no key is held. Only gravity (and leftover momentum) acts on the cube.
@@ -281,14 +285,25 @@ public class CubeRoller : MonoBehaviour
 
     // One physics step of the tilt. push is +1 / 0 / -1 along tiltDir; nextDir is the direction
     // the cube heads in after it lands (zero keeps the current one).
-    private void Step(float push, Vector3 nextDir, float dt)
+    private void Step(float push, Vector3 nextDir, float dt, bool sprint = false)
     {
         // Gravity pulls flat below 45 degrees and over the edge above it (unstable balance at 45).
         float gravity = settings.gravityAcceleration * Mathf.Sin((tiltAngle - 45f) * Mathf.Deg2Rad);
 
-        tiltVelocity += (push * settings.pushAcceleration + gravity) * dt;
+        // Walking and sprinting differ in how hard the key pushes and the speed it pushes up to.
+        float acceleration = sprint ? settings.sprintPushAcceleration : settings.pushAcceleration;
+        float maxSpeed = sprint ? settings.sprintMaxTiltSpeed : settings.maxTiltSpeed;
+
+        // Past its max speed the push adds nothing. Letting go of shift doesn't snap the speed
+        // down: damping slowly brings it back under the walking max.
+        float pushForce = push * acceleration;
+        if (push > 0f && tiltVelocity >= maxSpeed) pushForce = 0f;
+
+        tiltVelocity += (pushForce + gravity) * dt;
         tiltVelocity *= Mathf.Max(0f, 1f - settings.tiltDamping * dt);
-        tiltVelocity = Mathf.Clamp(tiltVelocity, -settings.maxTiltSpeed, settings.maxTiltSpeed);
+
+        float hardCap = Mathf.Max(settings.maxTiltSpeed, settings.sprintMaxTiltSpeed);
+        tiltVelocity = Mathf.Clamp(tiltVelocity, -hardCap, hardCap);
 
         float previousAngle = tiltAngle;
         tiltAngle += tiltVelocity * dt;

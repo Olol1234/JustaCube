@@ -51,7 +51,7 @@ public class PlayerCubeInput : MonoBehaviour
             return;
         }
 
-        roller.Hold(ToWorldDirection(move), Time.deltaTime);
+        roller.Hold(ToWorldDirection(move), Time.deltaTime, input.IsSprinting);
     }
 
     private Vector3 ToWorldDirection(Vector2 move)
