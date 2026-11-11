@@ -4,7 +4,7 @@ using UnityEngine;
 
 // Rolls the cube one face at a time by rotating around its bottom edge.
 // Knows nothing about input - anything (player, AI, replay) can call TryRoll.
-[RequireComponent(typeof(GroundProbe))]
+[RequireComponent(typeof(GroundProbe), typeof(CubeCollisionProbe))]
 public class CubeRoller : MonoBehaviour
 {
     [SerializeField] private CubeMovementSettings settings;
@@ -17,6 +17,7 @@ public class CubeRoller : MonoBehaviour
     public event Action Landed;
 
     private GroundProbe groundProbe;
+    private CubeCollisionProbe collisionProbe;
     private Vector3 airVelocity;
     private float verticalVelocity;
     private int jumpsUsed;
@@ -32,6 +33,7 @@ public class CubeRoller : MonoBehaviour
     private void Awake()
     {
         groundProbe = GetComponent<GroundProbe>();
+        collisionProbe = GetComponent<CubeCollisionProbe>();
     }
 
     private void Update()
@@ -252,7 +254,18 @@ public class CubeRoller : MonoBehaviour
         tiltVelocity += (push * settings.pushAcceleration + gravity) * dt;
         tiltVelocity *= Mathf.Max(0f, 1f - settings.tiltDamping * dt);
         tiltVelocity = Mathf.Clamp(tiltVelocity, -settings.maxTiltSpeed, settings.maxTiltSpeed);
+
+        float previousAngle = tiltAngle;
         tiltAngle += tiltVelocity * dt;
+
+        // Tipping further into a block: stay at the old angle and lose the speed. Only checked
+        // while the angle grows, so a cube that is already touching something can still back off.
+        if (tiltAngle > previousAngle && IsTiltBlocked(Mathf.Min(tiltAngle, 90f)))
+        {
+            tiltAngle = previousAngle;
+            tiltVelocity = 0f;
+            return;
+        }
 
         if (tiltAngle >= 90f)
         {
@@ -305,19 +318,39 @@ public class CubeRoller : MonoBehaviour
 
         BeginTilt(nextDir != Vector3.zero ? nextDir : landedDir);
         tiltAngle = Mathf.Clamp(overshoot, 0f, 90f);
+
+        // The leftover angle could push the new face into a block right away: start flat instead.
+        if (IsTiltBlocked(tiltAngle))
+        {
+            tiltAngle = 0f;
+            tiltVelocity = 0f;
+        }
         ApplyTilt();
 
         RollStarted?.Invoke(landedDir);
         RollCompleted?.Invoke(landedDir);
     }
 
-    private void ApplyTilt()
+    // The position and rotation the cube would have at a given tilt angle. Moves nothing.
+    private void GetTiltPose(float angle, out Vector3 position, out Quaternion rotation)
     {
         Vector3 pivot = tiltStartPos + (tiltDir + Vector3.down) * HalfSize;
-        Quaternion step = Quaternion.AngleAxis(tiltAngle, Vector3.Cross(Vector3.up, tiltDir));
-        transform.SetPositionAndRotation(
-            pivot + step * (tiltStartPos - pivot),
-            step * tiltStartRot);
+        Quaternion step = Quaternion.AngleAxis(angle, Vector3.Cross(Vector3.up, tiltDir));
+        position = pivot + step * (tiltStartPos - pivot);
+        rotation = step * tiltStartRot;
+    }
+
+    private void ApplyTilt()
+    {
+        GetTiltPose(tiltAngle, out Vector3 position, out Quaternion rotation);
+        transform.SetPositionAndRotation(position, rotation);
+    }
+
+    // Would the cube overlap a block at this tilt angle?
+    private bool IsTiltBlocked(float angle)
+    {
+        GetTiltPose(angle, out Vector3 position, out Quaternion rotation);
+        return collisionProbe.WouldOverlap(position, rotation);
     }
 
     private IEnumerator Roll(Vector3 direction)
