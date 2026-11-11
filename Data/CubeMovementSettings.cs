@@ -10,8 +10,14 @@ public class CubeMovementSettings : ScriptableObject
     public AnimationCurve rollCurve = AnimationCurve.EaseInOut(0f, 0f, 1f, 1f);
 
     [Header("Tilt physics")]
-    [Tooltip("Angular acceleration (deg/s^2) from holding a direction key. Must beat Gravity Acceleration * 0.71, or the cube can't tip from flat.")]
+    [Tooltip("Tilt speed (deg/s) the cube starts with when it begins tipping from flat. Raise it if the start feels slow.")]
+    [Min(0f)] public float startKick = 60f;
+
+    [Tooltip("Walking: angular acceleration (deg/s^2) from holding a direction key. Must beat Gravity Acceleration * 0.71, or the cube can't tip from flat.")]
     [Min(0f)] public float pushAcceleration = 400f;
+
+    [Tooltip("Sprinting (shift): angular acceleration (deg/s^2) from holding a direction key. Higher than walking, so it ramps up faster.")]
+    [Min(0f)] public float sprintPushAcceleration = 700f;
 
     [Tooltip("Angular acceleration (deg/s^2) of gravity. Pulls the cube flat below 45 degrees and over the edge above it.")]
     [Min(0f)] public float gravityAcceleration = 300f;
@@ -19,8 +25,11 @@ public class CubeMovementSettings : ScriptableObject
     [Tooltip("Fraction of tilt speed lost per second. Stops the cube from rocking forever.")]
     [Min(0f)] public float tiltDamping = 2f;
 
-    [Tooltip("Cap on tilt speed (deg/s), so a long fall can't get out of hand.")]
+    [Tooltip("Walking: the push stops adding speed once the tilt speed (deg/s) reaches this. Damping must not hold the speed below it, or it is never reached.")]
     [Min(1f)] public float maxTiltSpeed = 360f;
+
+    [Tooltip("Sprinting (shift): the push stops adding speed once the tilt speed (deg/s) reaches this. The larger of the two max speeds is also the hard cap on any tilt speed.")]
+    [Min(1f)] public float sprintMaxTiltSpeed = 500f;
 
     [Tooltip("How strong the weaker input axis must be, compared to the stronger one, to count as a second key (diagonal zigzag). 1 = needs perfectly equal, lower = easier to trigger.")]
     [Range(0.1f, 1f)] public float diagonalThreshold = 0.5f;
