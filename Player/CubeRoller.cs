@@ -103,16 +103,51 @@ public class CubeRoller : MonoBehaviour
     private void StepAir(float dt)
     {
         verticalVelocity = Mathf.Max(verticalVelocity - settings.airGravity * dt, -settings.maxFallSpeed);
-        transform.position += (airVelocity + Vector3.up * verticalVelocity) * dt;
+
+        MoveInAir(dt);
 
         // Keep tumbling around the center on the same axis the ground tilt used.
+        // A spin step that would swing a corner into a block is skipped, so the cube can't get
+        // stuck in a wall. (If it is already touching something, spinning is allowed.)
         if (tiltDir != Vector3.zero)
-            transform.Rotate(Vector3.Cross(Vector3.up, tiltDir), tiltVelocity * dt, Space.World);
+        {
+            Quaternion spun = Quaternion.AngleAxis(tiltVelocity * dt, Vector3.Cross(Vector3.up, tiltDir)) * transform.rotation;
+            bool inside = collisionProbe.WouldOverlap(transform.position, transform.rotation);
+            if (inside || !collisionProbe.WouldOverlap(transform.position, spun))
+                transform.rotation = spun;
+        }
 
         if (verticalVelocity > 0f) return;
 
         groundProbe.Probe();
         if (groundProbe.IsGrounded && LowestPointY() <= groundProbe.GroundHeight) LandFromAir();
+    }
+
+    // Moves the cube one axis at a time, so it slides along a wall instead of sticking to it.
+    // A blocked axis loses its speed (hard stop). Falling is not checked here: landing does that.
+    private void MoveInAir(float dt)
+    {
+        Vector3 pos = transform.position;
+        Quaternion rot = transform.rotation;
+
+        // Already touching something (e.g. the floor at the start of a jump): don't block, so
+        // the cube can always move out of it.
+        bool alreadyInside = collisionProbe.WouldOverlap(pos, rot);
+
+        Vector3 stepX = new Vector3(airVelocity.x * dt, 0f, 0f);
+        if (!alreadyInside && collisionProbe.WouldOverlap(pos + stepX, rot)) airVelocity.x = 0f;
+        else pos += stepX;
+
+        Vector3 stepZ = new Vector3(0f, 0f, airVelocity.z * dt);
+        if (!alreadyInside && collisionProbe.WouldOverlap(pos + stepZ, rot)) airVelocity.z = 0f;
+        else pos += stepZ;
+
+        // Only a ceiling is blocked here. Coming down onto a block is handled by landing.
+        Vector3 stepY = new Vector3(0f, verticalVelocity * dt, 0f);
+        if (verticalVelocity > 0f && !alreadyInside && collisionProbe.WouldOverlap(pos + stepY, rot)) verticalVelocity = 0f;
+        else pos += stepY;
+
+        transform.position = pos;
     }
 
     // World Y of the lowest point of the (possibly tilted) cube.
