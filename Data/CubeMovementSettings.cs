@@ -51,6 +51,10 @@ public class CubeMovementSettings : ScriptableObject
     [Tooltip("Extra distance (m) added to the probe reach so it doesn't flicker at the boundary.")]
     [Min(0f)] public float groundSkin = 0.05f;
 
+    [Header("Collision")]
+    [Tooltip("How much smaller (m) than the cube the overlap test box is, so touching a floor or wall doesn't count as a hit.")]
+    [Min(0f)] public float collisionSkin = 0.02f;
+
     [Header("Hold to tilt (legacy, no longer used by CubeRoller)")]
     [Tooltip("Degrees per second the cube tilts while a key is held, and also how fast it falls under gravity.")]
     [Min(1f)] public float tiltSpeed = 90f;
