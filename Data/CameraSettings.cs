@@ -21,6 +21,12 @@ public class CameraSettings : ScriptableObject
     [Range(-89f, 89f)] public float maxPitch = 70f;
     public float startPitch = 25f;
 
+    [Header("Lock-on")]
+    [Tooltip("Seconds the camera takes to swing round to a locked target. Lower = snappier.")]
+    [Min(0.01f)] public float lockTurnSmoothTime = 0.15f;
+    [Tooltip("Extra pitch (degrees) added while locked, so the camera sits above the cube-to-target line.")]
+    [Range(-30f, 45f)] public float lockPitchOffset = 15f;
+
     [Header("Follow")]
     [Tooltip("Seconds to catch up with the target. 0 = locked on.")]
     [Min(0f)] public float followSmoothTime = 0.12f;
