@@ -12,9 +12,11 @@ public class InputReader : ScriptableObject
     [SerializeField] private string lookActionPath = "Player/Look";
     [SerializeField] private string jumpActionPath = "Player/Jump";
     [SerializeField] private string sprintActionPath = "Player/Sprint";
+    [SerializeField] private string lockOnActionPath = "Player/LockOn";
 
     public event Action<Vector2> MoveChanged;
     public event Action JumpPerformed;
+    public event Action LockOnPerformed;
 
     public Vector2 Move => moveAction != null ? moveAction.ReadValue<Vector2>() : Vector2.zero;
     public Vector2 Look => lookAction != null ? lookAction.ReadValue<Vector2>() : Vector2.zero;
@@ -24,6 +26,7 @@ public class InputReader : ScriptableObject
     private InputAction lookAction;
     private InputAction jumpAction;
     private InputAction sprintAction;
+    private InputAction lockOnAction;
     private int users;
 
     // Ref-counted so several listeners can share one reader safely.
@@ -44,6 +47,9 @@ public class InputReader : ScriptableObject
         jumpAction.Enable();
         sprintAction = actions.FindAction(sprintActionPath, throwIfNotFound: true);
         sprintAction.Enable();
+        lockOnAction = actions.FindAction(lockOnActionPath, throwIfNotFound: true);
+        lockOnAction.performed += OnLockOn;
+        lockOnAction.Enable();
     }
 
     public void Disable()
@@ -57,12 +63,16 @@ public class InputReader : ScriptableObject
         jumpAction.performed -= OnJump;
         jumpAction.Disable();
         sprintAction.Disable();
+        lockOnAction.performed -= OnLockOn;
+        lockOnAction.Disable();
         moveAction = null;
         lookAction = null;
         jumpAction = null;
         sprintAction = null;
+        lockOnAction = null;
     }
 
     private void OnMove(InputAction.CallbackContext ctx) => MoveChanged?.Invoke(ctx.ReadValue<Vector2>());
     private void OnJump(InputAction.CallbackContext ctx) => JumpPerformed?.Invoke();
+    private void OnLockOn(InputAction.CallbackContext ctx) => LockOnPerformed?.Invoke();
 }
