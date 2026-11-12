@@ -1,10 +1,19 @@
 using UnityEngine;
 
+// How move input is turned into a world direction.
+public enum CameraMode
+{
+    CameraRelative, // "up" moves away from the camera view
+    WorldRelative,  // "up" always moves along world +Z, whatever the camera does
+}
+
 // The player "brain": reads the InputReader and asks the CubeRoller to roll.
-// Directions are relative to the camera, so "up" always rolls away from the view.
+// Directions follow the selected CameraMode (camera-relative by default).
 [RequireComponent(typeof(CubeRoller))]
 public class PlayerCubeInput : MonoBehaviour
 {
+    [Tooltip("Select the camera mode for player input")]
+    [SerializeField] private CameraMode cameraMode;
     [SerializeField] private InputReader input;
     [SerializeField] private CubeMovementSettings settings;
     [SerializeField] private Transform cameraTransform;
@@ -32,7 +41,7 @@ public class PlayerCubeInput : MonoBehaviour
         input.Disable();
     }
 
-    // Holding a direction jumps that way (camera-relative); no direction jumps straight up.
+    // Holding a direction jumps that way (per the selected CameraMode); no direction jumps straight up.
     private void OnJump()
     {
         Vector2 move = input.Move;
@@ -56,7 +65,8 @@ public class PlayerCubeInput : MonoBehaviour
 
     private Vector3 ToWorldDirection(Vector2 move)
     {
-        if (cameraTransform == null) return new Vector3(move.x, 0f, move.y);
+        if (cameraMode == CameraMode.WorldRelative || cameraTransform == null)
+            return new Vector3(move.x, 0f, move.y);
 
         Vector3 forward = Vector3.ProjectOnPlane(cameraTransform.forward, Vector3.up).normalized;
         Vector3 right = Vector3.ProjectOnPlane(cameraTransform.right, Vector3.up).normalized;
