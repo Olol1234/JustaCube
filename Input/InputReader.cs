@@ -13,10 +13,12 @@ public class InputReader : ScriptableObject
     [SerializeField] private string jumpActionPath = "Player/Jump";
     [SerializeField] private string sprintActionPath = "Player/Sprint";
     [SerializeField] private string lockOnActionPath = "Player/LockOn";
+    [SerializeField] private string dashActionPath = "Player/Dash";
 
     public event Action<Vector2> MoveChanged;
     public event Action JumpPerformed;
     public event Action LockOnPerformed;
+    public event Action DashPerformed;
 
     public Vector2 Move => moveAction != null ? moveAction.ReadValue<Vector2>() : Vector2.zero;
     public Vector2 Look => lookAction != null ? lookAction.ReadValue<Vector2>() : Vector2.zero;
@@ -27,6 +29,7 @@ public class InputReader : ScriptableObject
     private InputAction jumpAction;
     private InputAction sprintAction;
     private InputAction lockOnAction;
+    private InputAction dashAction;
     private int users;
 
     // Ref-counted so several listeners can share one reader safely.
@@ -42,7 +45,6 @@ public class InputReader : ScriptableObject
         moveAction.canceled += OnMove;
         moveAction.Enable();
         lookAction.Enable();
-        jumpAction = actions.FindAction(jumpActionPath, throwIfNotFound: true);
         jumpAction.performed += OnJump;
         jumpAction.Enable();
         sprintAction = actions.FindAction(sprintActionPath, throwIfNotFound: true);
@@ -50,6 +52,9 @@ public class InputReader : ScriptableObject
         lockOnAction = actions.FindAction(lockOnActionPath, throwIfNotFound: true);
         lockOnAction.performed += OnLockOn;
         lockOnAction.Enable();
+        dashAction = actions.FindAction(dashActionPath, throwIfNotFound: true);
+        dashAction.performed += OnDash;
+        dashAction.Enable();
     }
 
     public void Disable()
@@ -65,14 +70,18 @@ public class InputReader : ScriptableObject
         sprintAction.Disable();
         lockOnAction.performed -= OnLockOn;
         lockOnAction.Disable();
+        dashAction.performed -= OnDash;
+        dashAction.Disable();
         moveAction = null;
         lookAction = null;
         jumpAction = null;
         sprintAction = null;
         lockOnAction = null;
+        dashAction = null;
     }
 
     private void OnMove(InputAction.CallbackContext ctx) => MoveChanged?.Invoke(ctx.ReadValue<Vector2>());
     private void OnJump(InputAction.CallbackContext ctx) => JumpPerformed?.Invoke();
     private void OnLockOn(InputAction.CallbackContext ctx) => LockOnPerformed?.Invoke();
+    private void OnDash(InputAction.CallbackContext ctx) => DashPerformed?.Invoke();
 }
