@@ -110,8 +110,9 @@ public class CubeRoller : MonoBehaviour
     }
 
     // Dashes in the given world direction: a fixed-distance flat burst that keeps the cube's
-    // orientation. Works from the ground (only when resting flat) and in the air (limited by
-    // maxAirDashes). Returns false if a dash isn't allowed right now. A zero direction is refused:
+    // orientation (a tipped cube slides tipped, then carries on tilting from where it stopped).
+    // Works from the ground and in the air (limited by maxAirDashes). Returns false if a dash
+    // isn't allowed right now. A zero direction is refused:
     // picking a default (e.g. forward from the camera) is the caller's job.
     public bool Dash(Vector3 direction)
     {
@@ -124,11 +125,6 @@ public class CubeRoller : MonoBehaviour
         {
             if (airDashesUsed >= settings.maxAirDashes) return false;
             airDashesUsed++;
-        }
-        else if (tiltAngle > 0f || tiltVelocity != 0f)
-        {
-            // Mid-tilt: a flat burst can't start from a half-tipped pose.
-            return false;
         }
 
         IsDashing = true;
@@ -203,6 +199,10 @@ public class CubeRoller : MonoBehaviour
 
     private void EndDash()
     {
+        // The tilt is computed from a flat reference position. Move that reference by however far
+        // the dash went, so the tilt carries on from here instead of snapping back to the start.
+        tiltStartPos += transform.position - dashStartPos;
+
         IsDashing = false;
         dashCooldownTimer = settings.dashCooldown;
         DashEnded?.Invoke();
