@@ -53,6 +53,22 @@ public class CubeMovementSettings : ScriptableObject
     [Tooltip("Cap on fall speed (m/s), so the ground probe can't be skipped in one frame.")]
     [Min(1f)] public float maxFallSpeed = 25f;
 
+    [Header("Dash")]
+    [Tooltip("How far (m) a dash travels. Fixed: it always covers this distance unless a block stops it.")]
+    [Min(0.1f)] public float dashDistance = 4f;
+
+    [Tooltip("Seconds a dash takes. Speed is distance / duration, so shorter = snappier.")]
+    [Min(0.05f)] public float dashDuration = 0.18f;
+
+    [Tooltip("Easing over the dash. X = time (0-1), Y = progress (0-1). Ease-out gives a burst that settles.")]
+    public AnimationCurve dashCurve = AnimationCurve.EaseInOut(0f, 0f, 1f, 1f);
+
+    [Tooltip("Seconds after a dash ends before another is allowed.")]
+    [Min(0f)] public float dashCooldown = 0.5f;
+
+    [Tooltip("Dashes allowed in the air before landing. 0 = ground only. Walking off a ledge doesn't use one.")]
+    [Min(0)] public int maxAirDashes = 1;
+
     [Header("Ground detection")]
     [Tooltip("Layers that count as ground. Keep the player cube off these layers.")]
     public LayerMask groundMask = ~0;
