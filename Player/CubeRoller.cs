@@ -76,7 +76,7 @@ public class CubeRoller : MonoBehaviour
     // jumps are left.
     public bool Jump(Vector3 direction)
     {
-        if (settings == null || jumpsUsed >= settings.maxJumps) return false;
+        if (settings == null || IsDashing || jumpsUsed >= settings.maxJumps) return false;
 
         if (!IsAirborne)
         {
@@ -338,7 +338,7 @@ public class CubeRoller : MonoBehaviour
     // (and over to the other side once flat), a sideways key applies no push so gravity decides.
     public void Hold(Vector3 direction, float dt, bool sprint = false)
     {
-        if (IsRolling || IsAirborne || settings == null) return;
+        if (IsRolling || IsAirborne || IsDashing || settings == null) return;
 
         direction.y = 0f;
         if (direction.sqrMagnitude < 0.0001f)
@@ -375,7 +375,7 @@ public class CubeRoller : MonoBehaviour
     // Call every frame no key is held. Only gravity (and leftover momentum) acts on the cube.
     public void Release(float dt)
     {
-        if (IsRolling || IsAirborne || settings == null) return;
+        if (IsRolling || IsAirborne || IsDashing || settings == null) return;
 
         if (tiltAngle <= 0f && tiltVelocity <= 0f)
         {

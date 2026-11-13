@@ -32,12 +32,14 @@ public class PlayerCubeInput : MonoBehaviour
         if (input == null) return;
         input.Enable();
         input.JumpPerformed += OnJump;
+        input.DashPerformed += OnDash;
     }
 
     private void OnDisable()
     {
         if (input == null) return;
         input.JumpPerformed -= OnJump;
+        input.DashPerformed -= OnDash;
         input.Disable();
     }
 
@@ -47,6 +49,14 @@ public class PlayerCubeInput : MonoBehaviour
         Vector2 move = input.Move;
         Vector3 direction = move.magnitude < settings.inputDeadzone ? Vector3.zero : ToWorldDirection(move);
         roller.Jump(direction);
+    }
+
+    // Holding a direction dashes that way; no direction dashes forward from the camera.
+    private void OnDash()
+    {
+        Vector2 move = input.Move;
+        Vector3 direction = move.magnitude < settings.inputDeadzone ? ForwardDirection() : ToWorldDirection(move);
+        roller.Dash(direction);
     }
 
     private void Update()
@@ -62,6 +72,9 @@ public class PlayerCubeInput : MonoBehaviour
 
         roller.Hold(ToWorldDirection(move), Time.deltaTime, input.IsSprinting);
     }
+
+    // "Away from the view": the camera's forward on the ground plane (world +Z in WorldRelative).
+    private Vector3 ForwardDirection() => ToWorldDirection(Vector2.up);
 
     private Vector3 ToWorldDirection(Vector2 move)
     {
