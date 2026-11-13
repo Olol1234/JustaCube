@@ -140,11 +140,65 @@ public class CubeRoller : MonoBehaviour
         return true;
     }
 
-    // TODO (piece B/C): slide along dashDir over dashDuration with dashCurve, checking collision.
-    // For now it ends at once, so calling Dash can never leave the cube stuck in the dashing state.
+    // Slides the cube along dashDir. The position is computed from the start each frame (not
+    // added to the last one), so the dash always covers exactly dashDistance whatever the
+    // framerate. dashCurve shapes how the distance is spread over dashDuration.
+    // A block in the way ends the dash early (plain stop, no sliding along the wall).
     private void StepDash(float dt)
     {
-        EndDash();
+        dashElapsed += dt;
+        float t = Mathf.Clamp01(dashElapsed / settings.dashDuration);
+        float progress = settings.dashCurve.Evaluate(t);
+
+        Vector3 target = dashStartPos + dashDir * (settings.dashDistance * progress);
+
+        if (!MoveDashTo(target) || t >= 1f) EndDash();
+    }
+
+    // Moves the cube toward target in pieces of at most half a cube, testing each one, so a
+    // fast dash (or a low framerate) can't jump over a thin wall. Returns false if a block
+    // stopped it. On a hit it narrows down the last piece, so the cube ends up against the
+    // block instead of leaving a gap.
+    private bool MoveDashTo(Vector3 target)
+    {
+        Vector3 pos = transform.position;
+        Quaternion rot = transform.rotation;
+
+        // Already touching something: don't block, so the cube can always move out of it.
+        bool alreadyInside = collisionProbe.WouldOverlap(pos, rot);
+
+        Vector3 delta = target - pos;
+        float distance = delta.magnitude;
+        if (distance < 0.0001f) return true;
+
+        int steps = Mathf.CeilToInt(distance / HalfSize);
+        Vector3 step = delta / steps;
+
+        for (int i = 0; i < steps; i++)
+        {
+            Vector3 next = pos + step;
+
+            if (!alreadyInside && collisionProbe.WouldOverlap(next, rot))
+            {
+                // Bisect between the free spot (lo) and the blocked one (hi).
+                Vector3 lo = pos;
+                Vector3 hi = next;
+                for (int j = 0; j < 6; j++)
+                {
+                    Vector3 mid = (lo + hi) * 0.5f;
+                    if (collisionProbe.WouldOverlap(mid, rot)) hi = mid;
+                    else lo = mid;
+                }
+
+                transform.position = lo;
+                return false;
+            }
+
+            pos = next;
+        }
+
+        transform.position = pos;
+        return true;
     }
 
     private void EndDash()
