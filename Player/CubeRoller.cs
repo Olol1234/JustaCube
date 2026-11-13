@@ -11,16 +11,25 @@ public class CubeRoller : MonoBehaviour
 
     public bool IsRolling { get; private set; }
     public bool IsAirborne { get; private set; }
+    public bool IsDashing { get; private set; }
 
     public event Action<Vector3> RollStarted;
     public event Action<Vector3> RollCompleted;
     public event Action Landed;
+    public event Action<Vector3> DashStarted;
+    public event Action DashEnded;
 
     private GroundProbe groundProbe;
     private CubeCollisionProbe collisionProbe;
     private Vector3 airVelocity;
     private float verticalVelocity;
     private int jumpsUsed;
+
+    private Vector3 dashDir;
+    private Vector3 dashStartPos;
+    private float dashElapsed;
+    private float dashCooldownTimer;
+    private int airDashesUsed;
 
     private Vector3 tiltDir;
     private Vector3 tiltStartPos;
@@ -39,6 +48,15 @@ public class CubeRoller : MonoBehaviour
     private void Update()
     {
         if (settings == null) return;
+
+        if (dashCooldownTimer > 0f) dashCooldownTimer -= Time.deltaTime;
+
+        // A dash takes over completely: no gravity, no tumble, no ground probe until it ends.
+        if (IsDashing)
+        {
+            StepDash(Time.deltaTime);
+            return;
+        }
 
         if (IsAirborne)
         {
@@ -89,6 +107,51 @@ public class CubeRoller : MonoBehaviour
         else tiltVelocity = Mathf.Max(tiltVelocity, settings.jumpSpinSpeed);
         tiltDir = spinDir;
         return true;
+    }
+
+    // Dashes in the given world direction: a fixed-distance flat burst that keeps the cube's
+    // orientation. Works from the ground (only when resting flat) and in the air (limited by
+    // maxAirDashes). Returns false if a dash isn't allowed right now. A zero direction is refused:
+    // picking a default (e.g. forward from the camera) is the caller's job.
+    public bool Dash(Vector3 direction)
+    {
+        if (settings == null || IsDashing || IsRolling || dashCooldownTimer > 0f) return false;
+
+        direction.y = 0f;
+        if (direction.sqrMagnitude < 0.0001f) return false;
+
+        if (IsAirborne)
+        {
+            if (airDashesUsed >= settings.maxAirDashes) return false;
+            airDashesUsed++;
+        }
+        else if (tiltAngle > 0f || tiltVelocity != 0f)
+        {
+            // Mid-tilt: a flat burst can't start from a half-tipped pose.
+            return false;
+        }
+
+        IsDashing = true;
+        dashDir = direction.normalized;
+        dashStartPos = transform.position;
+        dashElapsed = 0f;
+
+        DashStarted?.Invoke(dashDir);
+        return true;
+    }
+
+    // TODO (piece B/C): slide along dashDir over dashDuration with dashCurve, checking collision.
+    // For now it ends at once, so calling Dash can never leave the cube stuck in the dashing state.
+    private void StepDash(float dt)
+    {
+        EndDash();
+    }
+
+    private void EndDash()
+    {
+        IsDashing = false;
+        dashCooldownTimer = settings.dashCooldown;
+        DashEnded?.Invoke();
     }
 
     // Left the ground without jumping. Counts as one jump used.
@@ -199,6 +262,7 @@ public class CubeRoller : MonoBehaviour
         verticalVelocity = 0f;
         airVelocity = Vector3.zero;
         jumpsUsed = 0;
+        airDashesUsed = 0;
         ApplyTilt();
 
         Landed?.Invoke();
