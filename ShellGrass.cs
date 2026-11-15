@@ -17,6 +17,12 @@ public class ShellGrass : MonoBehaviour
     [Tooltip("How many layers to stack. More layers look denser but cost more fill rate.")]
     [SerializeField, Range(2, 32)] private int layerCount = 16;
 
+    [Tooltip("1 = layers evenly spaced. Higher packs layers closer together near the ground and spreads them out toward the tips.")]
+    [SerializeField, Range(1f, 3f)] private float heightPower = 1.5f;
+
+    [Tooltip("Off: layers bunch near the ground. On: mirrored, layers bunch near the tips.")]
+    [SerializeField] private bool denserAtTop = true;
+
     private static readonly int LayerHeightId = Shader.PropertyToID("_LayerHeight");
 
     private MeshRenderer meshRenderer;
@@ -33,6 +39,8 @@ public class ShellGrass : MonoBehaviour
         Teardown();
     }
 
+    // Right-click the component header > Rebuild while playing, to pick up edits made to the shell material.
+    [ContextMenu("Rebuild")]
     private void Build()
     {
         if (shellMaterial == null)
@@ -54,8 +62,12 @@ public class ShellGrass : MonoBehaviour
         {
             var layer = new Material(shellMaterial) { name = $"{shellMaterial.name} Layer {i}" };
 
-            // From just above the ground (> 0) up to the tip (1).
-            layer.SetFloat(LayerHeightId, (i + 1) / (float)layerCount);
+            // From just above the ground (> 0) up to the tip (1). The power bunches layers near the ground.
+            float t = (i + 1) / (float)layerCount;
+            float height = denserAtTop
+                ? 1f - Mathf.Pow(1f - t, heightPower)   // mirrored: small steps near the tips
+                : Mathf.Pow(t, heightPower);            // small steps near the ground
+            layer.SetFloat(LayerHeightId, height);
 
             layers.Add(layer);
             all[originalMaterials.Length + i] = layer;
