@@ -251,6 +251,14 @@ public class CubeRoller : MonoBehaviour
         // the cube can always move out of it.
         bool alreadyInside = collisionProbe.WouldOverlap(pos, rot);
 
+        // Escape hatch: caught inside a block with the center not over ground (that would be the
+        // floor at the start of a jump). Push out sideways so the cube can never stay stuck.
+        if (alreadyInside && !IsCenterOverGround(pos))
+        {
+            PushOutSideways(ref pos, rot);
+            alreadyInside = collisionProbe.WouldOverlap(pos, rot);
+        }
+
         Vector3 stepX = new Vector3(airVelocity.x * dt, 0f, 0f);
         // A blocked step is skipped but the speed is kept, so a cube rising beside a wall
         // moves onto the top as soon as it clears the edge.
@@ -267,29 +275,59 @@ public class CubeRoller : MonoBehaviour
             if (blockedY) verticalVelocity = 0f;
             else pos += stepY;
         }
-        else if (!blockedY || !IsHangingOverEdge(pos))
+        else
         {
-            // Free fall, or the floor is right under the center: step down and let landing handle it.
-            pos += stepY;
+            // Fall in small pieces, so one fast frame can't bury the cube deep inside a block.
+            float remaining = stepY.y;
+            float piece = settings.pushOutStep * 2f;
+            while (remaining < -0.0001f)
+            {
+                float d = Mathf.Max(remaining, -piece);
+                pos.y += d;
+                remaining -= d;
+
+                // A piece that lands in a block. If the center is over ground that is a normal
+                // landing (handled after this). If not, only an edge or corner is caught on the
+                // block, so push the cube sideways off it and let it fall past.
+                if (!alreadyInside && collisionProbe.WouldOverlap(pos, rot))
+                {
+                    if (!IsCenterOverGround(pos)) PushOutSideways(ref pos, rot);
+                    break;
+                }
+            }
         }
-        // else: only part of the cube is over a block's edge. Don't sink into the block. Hold the
-        // height and keep sliding sideways until the center is over the block, then landing takes over.
 
         transform.position = pos;
     }
 
-    // True if the fall is blocked by an edge the cube's center is not over yet, and the cube is
-    // still moving sideways (so it will get past the edge). With no sideways speed it can't slide
-    // off, so this returns false and the old behavior applies instead of hovering forever.
-    private bool IsHangingOverEdge(Vector3 pos)
+    // GroundProbe reads the transform, so the cube is placed at pos first.
+    private bool IsCenterOverGround(Vector3 pos)
     {
-        Vector3 horizontal = airVelocity;
-        horizontal.y = 0f;
-        if (horizontal.sqrMagnitude < 0.0001f) return false;
-
-        transform.position = pos; // GroundProbe reads the transform, so place it first.
+        transform.position = pos;
         groundProbe.Probe();
-        return !groundProbe.IsGrounded;
+        return groundProbe.IsGrounded;
+    }
+
+    // Moves pos sideways by the smallest amount that frees the cube from every block, trying
+    // 8 directions at growing distances. Uses the overlap test, so it works with any collider
+    // (including non-convex ProBuilder meshes). Gives up (leaves pos alone) after half a cube.
+    private void PushOutSideways(ref Vector3 pos, Quaternion rot)
+    {
+        float step = settings.pushOutStep;
+        float maxDistance = HalfSize;
+
+        for (float distance = step; distance <= maxDistance; distance += step)
+        {
+            for (int i = 0; i < 8; i++)
+            {
+                float angle = i * 45f * Mathf.Deg2Rad;
+                Vector3 candidate = pos + new Vector3(Mathf.Cos(angle), 0f, Mathf.Sin(angle)) * distance;
+                if (collisionProbe.WouldOverlap(candidate, rot)) continue;
+
+                pos = candidate;
+                return;
+            }
+        }
     }
 
     // World Y of the lowest point of the (possibly tilted) cube.

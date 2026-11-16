@@ -80,6 +80,9 @@ public class CubeMovementSettings : ScriptableObject
     [Tooltip("How much smaller (m) than the cube the overlap test box is, so touching a floor or wall doesn't count as a hit.")]
     [Min(0f)] public float collisionSkin = 0.02f;
 
+    [Tooltip("Step size (m) when pushing a falling cube sideways out of a block's edge. Smaller is smoother but costs more overlap tests.")]
+    [Min(0.01f)] public float pushOutStep = 0.05f;
+
     [Header("Hold to tilt (legacy, no longer used by CubeRoller)")]
     [Tooltip("Degrees per second the cube tilts while a key is held, and also how fast it falls under gravity.")]
     [Min(1f)] public float tiltSpeed = 90f;
