@@ -241,7 +241,7 @@ public class CubeRoller : MonoBehaviour
     }
 
     // Moves the cube one axis at a time, so it slides along a wall instead of sticking to it.
-    // A blocked axis loses its speed (hard stop). Falling is not checked here: landing does that.
+    // A blocked axis skips its step but keeps its speed. Falling is not checked here: landing does that.
     private void MoveInAir(float dt)
     {
         Vector3 pos = transform.position;
@@ -252,19 +252,44 @@ public class CubeRoller : MonoBehaviour
         bool alreadyInside = collisionProbe.WouldOverlap(pos, rot);
 
         Vector3 stepX = new Vector3(airVelocity.x * dt, 0f, 0f);
-        if (!alreadyInside && collisionProbe.WouldOverlap(pos + stepX, rot)) airVelocity.x = 0f;
-        else pos += stepX;
+        // A blocked step is skipped but the speed is kept, so a cube rising beside a wall
+        // moves onto the top as soon as it clears the edge.
+        if (alreadyInside || !collisionProbe.WouldOverlap(pos + stepX, rot)) pos += stepX;
 
         Vector3 stepZ = new Vector3(0f, 0f, airVelocity.z * dt);
-        if (!alreadyInside && collisionProbe.WouldOverlap(pos + stepZ, rot)) airVelocity.z = 0f;
-        else pos += stepZ;
+        if (alreadyInside || !collisionProbe.WouldOverlap(pos + stepZ, rot)) pos += stepZ;
 
-        // Only a ceiling is blocked here. Coming down onto a block is handled by landing.
         Vector3 stepY = new Vector3(0f, verticalVelocity * dt, 0f);
-        if (verticalVelocity > 0f && !alreadyInside && collisionProbe.WouldOverlap(pos + stepY, rot)) verticalVelocity = 0f;
-        else pos += stepY;
+        bool blockedY = !alreadyInside && collisionProbe.WouldOverlap(pos + stepY, rot);
+        if (verticalVelocity > 0f)
+        {
+            // Rising into a ceiling: stop the rise.
+            if (blockedY) verticalVelocity = 0f;
+            else pos += stepY;
+        }
+        else if (!blockedY || !IsHangingOverEdge(pos))
+        {
+            // Free fall, or the floor is right under the center: step down and let landing handle it.
+            pos += stepY;
+        }
+        // else: only part of the cube is over a block's edge. Don't sink into the block. Hold the
+        // height and keep sliding sideways until the center is over the block, then landing takes over.
 
         transform.position = pos;
+    }
+
+    // True if the fall is blocked by an edge the cube's center is not over yet, and the cube is
+    // still moving sideways (so it will get past the edge). With no sideways speed it can't slide
+    // off, so this returns false and the old behavior applies instead of hovering forever.
+    private bool IsHangingOverEdge(Vector3 pos)
+    {
+        Vector3 horizontal = airVelocity;
+        horizontal.y = 0f;
+        if (horizontal.sqrMagnitude < 0.0001f) return false;
+
+        transform.position = pos; // GroundProbe reads the transform, so place it first.
+        groundProbe.Probe();
+        return !groundProbe.IsGrounded;
     }
 
     // World Y of the lowest point of the (possibly tilted) cube.
