@@ -1,24 +1,20 @@
 using UnityEngine;
 
-// Fires the skill in a slot when its key is pressed: checks the cooldown, works out the direction
-// and spawns a Projectile. It moves nothing and deals no damage itself (Projectile does that).
+// Fires the skill in a slot when its key is pressed: checks the cooldown, works out the direction,
+// builds a SkillContext and hands it to the skill's Use. It does not know what kind of skill it
+// is, and it moves nothing and deals no damage itself.
 // Locked on: aims at the target's position at the moment of firing. Unlocked: camera forward.
-// Either way the shot then flies a fixed line, it never steers.
+// (A projectile skill then flies a fixed line, it never steers.)
 public class PlayerAttacker : MonoBehaviour
 {
     [SerializeField] private InputReader input;
     [SerializeField] private ThirdPersonCamera cameraRig;
 
-    [Tooltip("One attack per skill slot, in the same order as the InputReader's skill actions. An empty slot does nothing.")]
-    [SerializeField] private AttackData[] slots = new AttackData[3];
+    [Tooltip("One skill per slot, in the same order as the InputReader's skill actions. An empty slot does nothing.")]
+    [SerializeField] private SkillData[] slots = new SkillData[3];
 
-    [SerializeField] private Projectile projectilePrefab;
-
-    [Tooltip("Layers the player's shots can hurt (e.g. Enemy). Do not include the player's own layer.")]
+    [Tooltip("Layers the player's skills can hurt (e.g. Enemy). Do not include the player's own layer.")]
     [SerializeField] private LayerMask targetMask;
-
-    [Tooltip("How far (m) in front of the cube the shot starts, so it begins clear of the cube.")]
-    [SerializeField, Min(0f)] private float spawnOffset = 1.2f;
 
     private float[] readyAt;          // Time.time at which each slot may fire again
     private Lockable lockedTarget;
@@ -50,17 +46,14 @@ public class PlayerAttacker : MonoBehaviour
     {
         if (slot < 0 || slot >= slots.Length) return;
 
-        AttackData data = slots[slot];
-        if (data == null) return;
+        SkillData skill = slots[slot];
+        if (skill == null) return;
         if (Time.time < readyAt[slot]) return;
 
-        Vector3 direction = GetAimDirection();
-        Vector3 spawnPos = transform.position + direction * spawnOffset;
+        var ctx = new SkillContext(gameObject, transform.position, GetAimDirection(), lockedTarget, targetMask);
+        skill.Use(ctx);
 
-        Projectile shot = Instantiate(projectilePrefab, spawnPos, Quaternion.LookRotation(direction));
-        shot.Init(data, direction, gameObject, targetMask);
-
-        readyAt[slot] = Time.time + data.cooldown;
+        readyAt[slot] = Time.time + skill.cooldown;
     }
 
     private Vector3 GetAimDirection()
