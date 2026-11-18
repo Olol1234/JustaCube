@@ -2,6 +2,12 @@ using System;
 using System.Collections;
 using UnityEngine;
 
+public enum ControlMode
+{
+    Pause,
+    Override
+}
+
 // Rolls the cube one face at a time by rotating around its bottom edge.
 // Knows nothing about input - anything (player, AI, replay) can call TryRoll.
 [RequireComponent(typeof(GroundProbe), typeof(CubeCollisionProbe))]
@@ -12,6 +18,9 @@ public class CubeRoller : MonoBehaviour
     public bool IsRolling { get; private set; }
     public bool IsAirborne { get; private set; }
     public bool IsDashing { get; private set; }
+
+    // True while something else (a skill) moves the cube. See BeginControl / EndControl.
+    public bool IsControlled { get; private set; }
 
     public event Action<Vector3> RollStarted;
     public event Action<Vector3> RollCompleted;
@@ -37,6 +46,10 @@ public class CubeRoller : MonoBehaviour
     private float tiltAngle;
     private float tiltVelocity;
 
+    private ControlMode controlMode;
+    private Vector3 controlStartPos;
+    private Quaternion controlStartRot;
+
     private float HalfSize => transform.localScale.x * 0.5f;
 
     private void Awake()
@@ -50,6 +63,9 @@ public class CubeRoller : MonoBehaviour
         if (settings == null) return;
 
         if (dashCooldownTimer > 0f) dashCooldownTimer -= Time.deltaTime;
+
+        // Something else moves the cube: the roller does nothing until EndControl.
+        if (IsControlled) return;
 
         // A dash takes over completely: no gravity, no tumble, no ground probe until it ends.
         if (IsDashing)
@@ -76,7 +92,7 @@ public class CubeRoller : MonoBehaviour
     // jumps are left.
     public bool Jump(Vector3 direction)
     {
-        if (settings == null || IsDashing || jumpsUsed >= settings.maxJumps) return false;
+        if (settings == null || IsControlled || IsDashing || jumpsUsed >= settings.maxJumps) return false;
 
         if (!IsAirborne)
         {
@@ -116,7 +132,7 @@ public class CubeRoller : MonoBehaviour
     // picking a default (e.g. forward from the camera) is the caller's job.
     public bool Dash(Vector3 direction)
     {
-        if (settings == null || IsDashing || IsRolling || dashCooldownTimer > 0f) return false;
+        if (settings == null || IsControlled || IsDashing || IsRolling || dashCooldownTimer > 0f) return false;
 
         direction.y = 0f;
         if (direction.sqrMagnitude < 0.0001f) return false;
@@ -387,7 +403,7 @@ public class CubeRoller : MonoBehaviour
 
     public bool TryRoll(Vector3 direction)
     {
-        if (IsRolling || IsAirborne || settings == null) return false;
+        if (IsRolling || IsAirborne || IsControlled || settings == null) return false;
 
         direction.y = 0f;
         if (direction.sqrMagnitude < 0.0001f) return false;
@@ -401,7 +417,7 @@ public class CubeRoller : MonoBehaviour
     // (and over to the other side once flat), a sideways key applies no push so gravity decides.
     public void Hold(Vector3 direction, float dt, bool sprint = false)
     {
-        if (IsRolling || IsAirborne || IsDashing || settings == null) return;
+        if (IsRolling || IsAirborne || IsDashing || IsControlled || settings == null) return;
 
         direction.y = 0f;
         if (direction.sqrMagnitude < 0.0001f)
@@ -438,7 +454,7 @@ public class CubeRoller : MonoBehaviour
     // Call every frame no key is held. Only gravity (and leftover momentum) acts on the cube.
     public void Release(float dt)
     {
-        if (IsRolling || IsAirborne || IsDashing || settings == null) return;
+        if (IsRolling || IsAirborne || IsDashing || IsControlled || settings == null) return;
 
         if (tiltAngle <= 0f && tiltVelocity <= 0f)
         {
@@ -632,5 +648,81 @@ public class CubeRoller : MonoBehaviour
             Mathf.Round(e.x / 90f) * 90f,
             Mathf.Round(e.y / 90f) * 90f,
             Mathf.Round(e.z / 90f) * 90f);
+    }
+
+    // A skill takes control of the cube: the roller stops reacting to input and stops its own
+    // movement until EndControl. The skill then moves the transform itself.
+    //   Pause:    the roller's state (tilt, speeds, dash, jumps) stays as it is, and the pose is
+    //             saved. EndControl puts the cube back there and the movement carries on.
+    //   Override: the roller drops its state. EndControl settles the cube wherever the skill left
+    //             it (flat on the ground, or falling).
+    // Returns false if the cube is already controlled.
+    public bool BeginControl(ControlMode mode)
+    {
+        if (settings == null || IsControlled) return false;
+
+        IsControlled = true;
+        controlMode = mode;
+
+        if (mode == ControlMode.Pause)
+        {
+            controlStartPos = transform.position;
+            controlStartRot = transform.rotation;
+            return true;
+        }
+
+        // Override: cancel whatever the cube was doing.
+        StopAllCoroutines();
+        IsRolling = false;
+
+        if (IsDashing)
+        {
+            IsDashing = false;
+            DashEnded?.Invoke();    // so effects listening to the dash can stop
+        }
+
+        tiltAngle = 0f;
+        tiltVelocity = 0f;
+        airVelocity = Vector3.zero;
+        verticalVelocity = 0f;
+        return true;
+    }
+
+    // Gives the cube back to the roller. Does nothing if it was not controlled.
+    public void EndControl()
+    {
+        if (!IsControlled) return;
+        IsControlled = false;
+
+        if (controlMode == ControlMode.Pause)
+        {
+            // Back to the exact pose it had, so ground tilt, air and dash all carry on without a pop.
+            transform.SetPositionAndRotation(controlStartPos, controlStartRot);
+            return;
+        }
+
+        // Override: settle from wherever the skill left the cube.
+        transform.rotation = SnapRotation(transform.rotation);
+        groundProbe.Probe();
+
+        bool onGround = groundProbe.IsGrounded
+            && LowestPointY() - groundProbe.GroundHeight <= settings.groundSkin;
+
+        if (onGround)
+        {
+            // Rest flat on the ground, with no tilt and no speed.
+            Vector3 pos = transform.position;
+            pos.y = groundProbe.GroundHeight + HalfSize;
+            transform.position = pos;
+
+            IsAirborne = false;
+            jumpsUsed = 0;
+            airDashesUsed = 0;
+            BeginTilt(tiltDir != Vector3.zero ? tiltDir : Vector3.forward);
+        }
+        else
+        {
+            StartFall();
+        }
     }
 }
