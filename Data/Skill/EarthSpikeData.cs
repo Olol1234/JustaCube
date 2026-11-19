@@ -36,8 +36,12 @@ public class EarthSpikeData : SkillData
     [Tooltip("Size of one spike at full height (width, height, depth).")]
     public Vector3 spikeSize = new Vector3(1f, 1.5f, 1f);
     [Min(0f)] public float damage = 20f;
-    [Tooltip("Prefab of one spike's visual. Needs no collider, the runner does the hit test.")]
+    [Tooltip("Prefab of one spike's visual (1x1x1 at scale 1, pivot in the center). Needs no collider, the runner does the hit test. Empty = a plain cube.")]
     public GameObject spikePrefab;
+
+    [Header("Surface")]
+    [Tooltip("Layers a spike can rise from (the ground / block layer). A block in the line's path stops it.")]
+    public LayerMask groundMask;
 
     public override void Use(SkillContext ctx)
     {
@@ -69,8 +73,9 @@ public class EarthSpikeData : SkillData
     // Called by the slam at the moment of impact.
     void SpawnSpikes(Vector3 origin, Vector3 direction, GameObject owner, LayerMask targetMask)
     {
-        // TODO: spawn the spike runner here and hand it this asset, the direction, the owner and the mask
-        // (same idea as Projectile.Init).
-        Debug.Log($"{name}: impact, {segmentCount} spikes toward {direction}.", this);
+        // The runner plays the whole line by itself and destroys itself when done.
+        // Same idea as Projectile.Init: hand it the asset, where, which way, who fired, who it can hurt.
+        var runner = new GameObject("EarthSpikeRunner").AddComponent<EarthSpikeRunner>();
+        runner.Init(this, origin, direction, owner, targetMask);
     }
 }
