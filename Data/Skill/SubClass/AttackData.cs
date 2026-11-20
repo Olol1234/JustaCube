@@ -37,17 +37,18 @@ public class AttackData : SkillData
     [Tooltip("How far (m) in front of the firer the shot starts, so it begins clear of the cube (a sweep does not detect colliders it already overlaps).")]
     [Min(0f)] public float spawnOffset = 1.2f;
 
-    public override void Use(SkillContext ctx)
+    public override bool Use(SkillContext ctx)
     {
         if (projectilePrefab == null)
         {
             Debug.LogWarning($"{name}: no projectile prefab assigned.", this);
-            return;
+            return false;
         }
 
         Vector3 spawnPos = ctx.origin + ctx.direction * spawnOffset;
 
         Projectile shot = Instantiate(projectilePrefab, spawnPos, Quaternion.LookRotation(ctx.direction));
         shot.Init(this, ctx.direction, ctx.owner, ctx.targetMask);
+        return true;
     }
 }
