@@ -43,15 +43,15 @@ public class EarthSpikeData : SkillData
     [Tooltip("Layers a spike can rise from (the ground / block layer). A block in the line's path stops it.")]
     public LayerMask groundMask;
 
-    public override void Use(SkillContext ctx)
+    public override bool Use(SkillContext ctx)
     {
-        if (ctx.owner == null) return;
+        if (ctx.owner == null) return false;
 
         CubeSlam slam = ctx.owner.GetComponent<CubeSlam>();
         if (slam == null)
         {
             Debug.LogWarning($"{name}: the owner has no CubeSlam, the skill cannot be cast.", this);
-            return;
+            return false;
         }
 
         // The line ignores yaw/pitch of the aim: flatten it onto the ground plane.
@@ -65,9 +65,9 @@ public class EarthSpikeData : SkillData
         GameObject owner = ctx.owner;
         LayerMask targetMask = ctx.targetMask;
 
-        // False when the slam refuses (already playing, airborne, controlled). Nothing happens then.
-        // TODO: tell the caller, so the cooldown does not start on a cast that never happened.
-        slam.Play(motion, () => SpawnSpikes(origin, direction, owner, targetMask));
+        // Play returns false when the slam refuses (already playing, airborne, controlled).
+        // Passing that on tells the caller not to start the cooldown.
+        return slam.Play(motion, () => SpawnSpikes(origin, direction, owner, targetMask));
     }
 
     // Called by the slam at the moment of impact.
