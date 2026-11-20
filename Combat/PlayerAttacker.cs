@@ -51,7 +51,9 @@ public class PlayerAttacker : MonoBehaviour
         if (Time.time < readyAt[slot]) return;
 
         var ctx = new SkillContext(gameObject, transform.position, GetAimDirection(), lockedTarget, targetMask);
-        skill.Use(ctx);
+
+        // A refused cast (e.g. slam while airborne) must not start the cooldown.
+        if (!skill.Use(ctx)) return;
 
         readyAt[slot] = Time.time + skill.cooldown;
     }
