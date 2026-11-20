@@ -12,5 +12,7 @@ public abstract class SkillData : ScriptableObject
     [Min(0f)] public float cooldown = 0.5f;
 
     // Fire the skill. The context says who fired, from where, which way, at whom and who it can hurt.
-    public abstract void Use(SkillContext ctx);
+    // Returns true if the skill actually fired (the caller starts the cooldown),
+    // false if it was refused (e.g. the cube is airborne): no cooldown then.
+    public abstract bool Use(SkillContext ctx);
 }
