@@ -1,7 +1,6 @@
 using System;
 using System.Collections;
 using UnityEngine;
-using UnityEngine.InputSystem;
 
 // Moves the cube through a cast motion (rise, hang, slam, recover) while the roller is paused.
 // Knows nothing about what the slam is for: it calls onImpact when the cube hits the ground, and
@@ -10,10 +9,6 @@ using UnityEngine.InputSystem;
 [RequireComponent(typeof(CubeRoller))]
 public class CubeSlam : MonoBehaviour
 {
-    [Header("Temporary test")]
-    [Tooltip("Played by the test key (F) and the 'Play Test Slam' context menu entry. Remove once a skill uses CubeSlam.")]
-    [SerializeField] private SlamMotion testMotion = new SlamMotion();
-
     public bool IsPlaying { get; private set; }
 
     private CubeRoller roller;
@@ -22,13 +17,6 @@ public class CubeSlam : MonoBehaviour
     private void Awake()
     {
         roller = GetComponent<CubeRoller>();
-    }
-
-    // TEMPORARY: F plays the test slam. Reads the keyboard directly, which gameplay code should
-    // not do (only InputReader may). Delete this with the test hook.
-    private void Update()
-    {
-        if (Keyboard.current != null && Keyboard.current.fKey.wasPressedThisFrame) PlayTest();
     }
 
     // If the cube is switched off mid-cast, hand control back so the roller is never left frozen.
@@ -93,12 +81,5 @@ public class CubeSlam : MonoBehaviour
         }
 
         transform.position = to;
-    }
-
-    [ContextMenu("Play Test Slam")]
-    private void PlayTest()
-    {
-        if (!Application.isPlaying) return;
-        Play(testMotion, () => Debug.Log("Slam impact"));
     }
 }
