@@ -33,7 +33,20 @@ public class SlamMotion
         new Keyframe(0f, 0f, 0f, 0f),
         new Keyframe(1f, 1f, 2f, 2f));
 
+    [Header("Dive (cast while airborne)")]
+    [Tooltip("Seconds the cube hangs in the air before it dives. Rise and Slam above are the ground version.")]
+    [Min(0f)] public float diveHangTime = 0.08f;
+
+    [Tooltip("How fast (m/s) the cube dives. Speed, not time, because the fall distance varies.")]
+    [Min(0.1f)] public float diveSpeed = 40f;
+
+    [Tooltip("The dive ends after this many metres even if nothing was hit (e.g. over a pit). Whichever limit comes first wins.")]
+    [Min(0.1f)] public float maxDiveDistance = 30f;
+
+    [Tooltip("The dive ends after this many seconds even if nothing was hit. Whichever limit comes first wins.")]
+    [Min(0.1f)] public float maxDiveTime = 1.5f;
+
     [Header("Recovery")]
-    [Tooltip("Seconds the cube stays still after the impact, before it can move again.")]
+    [Tooltip("Seconds the cube stays still after the impact, before it can move again. Shared by the ground slam and the dive.")]
     [Min(0f)] public float recoveryTime = 0.15f;
 }
