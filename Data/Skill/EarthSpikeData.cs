@@ -60,14 +60,18 @@ public class EarthSpikeData : SkillData
             flat = Vector3.ProjectOnPlane(ctx.owner.transform.forward, Vector3.up);
         Vector3 direction = flat.normalized;
 
-        // Captured now: by the time the slam lands, the cube may have been moved by the roller.
-        Vector3 origin = ctx.origin;
+        // The direction is fixed now. The origin is NOT: it is read at the moment of impact (below),
+        // because a cast in the air dives to the ground first, so the cube is somewhere else by then.
         GameObject owner = ctx.owner;
         LayerMask targetMask = ctx.targetMask;
 
-        // Play returns false when the slam refuses (already playing, airborne, controlled).
+        // Play returns false when the slam refuses (already playing, controlled by something else).
         // Passing that on tells the caller not to start the cooldown.
-        return slam.Play(motion, () => SpawnSpikes(origin, direction, owner, targetMask));
+        return slam.Play(motion, () =>
+        {
+            if (owner == null) return;   // destroyed before the impact (a destroyed object is a fake null)
+            SpawnSpikes(owner.transform.position, direction, owner, targetMask);
+        });
     }
 
     // Called by the slam at the moment of impact.
