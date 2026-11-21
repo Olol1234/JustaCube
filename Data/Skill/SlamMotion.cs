@@ -46,6 +46,9 @@ public class SlamMotion
     [Tooltip("The dive ends after this many seconds even if nothing was hit. Whichever limit comes first wins.")]
     [Min(0.1f)] public float maxDiveTime = 1.5f;
 
+    [Tooltip("How fast (degrees per second) a tilted or tumbling cube turns to the nearest flat orientation during the dive, so it does not pop flat on landing.")]
+    [Min(0f)] public float diveFlattenSpeed = 720f;
+
     [Header("Recovery")]
     [Tooltip("Seconds the cube stays still after the impact, before it can move again. Shared by the ground slam and the dive.")]
     [Min(0f)] public float recoveryTime = 0.15f;
