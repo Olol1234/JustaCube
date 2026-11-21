@@ -22,6 +22,10 @@ public class CubeRoller : MonoBehaviour
     // True while something else (a skill) moves the cube. See BeginControl / EndControl.
     public bool IsControlled { get; private set; }
 
+    // The layers the cube treats as solid, so a skill that moves the cube itself (the slam dive)
+    // tests against the same blocks as the movement does.
+    public LayerMask GroundMask => settings != null ? settings.groundMask : (LayerMask)0;
+
     public event Action<Vector3> RollStarted;
     public event Action<Vector3> RollCompleted;
     public event Action Landed;
