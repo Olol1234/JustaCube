@@ -53,6 +53,13 @@ public class CubeMovementSettings : ScriptableObject
     [Tooltip("Cap on fall speed (m/s), so the ground probe can't be skipped in one frame.")]
     [Min(1f)] public float maxFallSpeed = 25f;
 
+    [Header("Knockback")]
+    [Tooltip("Upward speed (m/s) of the small hop a knockback gives. With airGravity it sets the air time, so it decides how far the push carries (distance = push speed x air time).")]
+    [Min(0f)] public float knockbackHopSpeed = 6f;
+
+    [Tooltip("Seconds the cube stays stunned after it lands from a knockback, before the player can move, jump or dash again. An attack can add more on top.")]
+    [Min(0f)] public float knockbackStunTime = 0.25f;
+
     [Header("Dash")]
     [Tooltip("How far (m) a dash travels. Fixed: it always covers this distance unless a block stops it.")]
     [Min(0.1f)] public float dashDistance = 4f;
