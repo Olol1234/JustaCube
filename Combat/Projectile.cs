@@ -48,12 +48,17 @@ public class Projectile : MonoBehaviour
     {
         if (!initialized) return;
 
-        float step = Mathf.Min(data.speed * Time.deltaTime, data.range - travelled);
-        if (step <= 0f)
+        // Out of range is the only reason to despawn here. A zero step can also mean the game is
+        // paused (deltaTime is 0), and a pause must freeze the shot, not destroy it.
+        float remaining = data.range - travelled;
+        if (remaining <= 0f)
         {
             Despawn();
             return;
         }
+
+        float step = Mathf.Min(data.speed * Time.deltaTime, remaining);
+        if (step <= 0f) return;
 
         // A sweep (not a point check) so a fast, small shot cannot skip over a thin target in one frame.
         LayerMask mask = data.stopsAtBlocks ? (targetMask | blockMask) : targetMask;
