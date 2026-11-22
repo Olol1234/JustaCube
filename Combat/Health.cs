@@ -40,6 +40,20 @@ public class Health : MonoBehaviour
         Died?.Invoke();
     }
 
+    // Changes the max at runtime (an item, a skin, a heart container). Current stays as it is when the
+    // max goes up (the new part starts empty, like Elden Ring) and is clamped when it goes down.
+    // Works on a dead object too, but never revives it.
+    public void SetMaxHealth(float newMax)
+    {
+        // [Min] on the field only guards the Inspector, so guard code calls here (bars divide by Max).
+        newMax = Mathf.Max(newMax, 1f);
+        if (Mathf.Approximately(newMax, maxHealth)) return;
+
+        maxHealth = newMax;
+        Current = Mathf.Min(Current, maxHealth);
+        Changed?.Invoke(Current, maxHealth);
+    }
+
     public void Heal(float amount)
     {
         if (IsDead || amount <= 0f) return;
