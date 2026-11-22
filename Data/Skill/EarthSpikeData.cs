@@ -3,8 +3,9 @@ using UnityEngine;
 // The earth spike skill: the cube slams down, then a line of spikes erupts one after another in
 // the aimed direction (flattened onto the ground plane).
 // Data only: never write to it at runtime, one asset is shared by every use.
-// Use() only starts the slam. The spikes are spawned from the slam's impact callback and run
-// themselves (the runner script, still to be written).
+// With a CubeSlam on the owner (the player), Use() starts the slam and the spikes are spawned from
+// its impact callback. Without one (a tower, the boss) the spikes start right away.
+// Either way the EarthSpikeRunner plays the line by itself.
 [CreateAssetMenu(menuName = "TheOneCube/Earth Spike Data", fileName = "EarthSpikeData")]
 public class EarthSpikeData : SkillData
 {
@@ -47,13 +48,6 @@ public class EarthSpikeData : SkillData
     {
         if (ctx.owner == null) return false;
 
-        CubeSlam slam = ctx.owner.GetComponent<CubeSlam>();
-        if (slam == null)
-        {
-            Debug.LogWarning($"{name}: the owner has no CubeSlam, the skill cannot be cast.", this);
-            return false;
-        }
-
         // The line ignores yaw/pitch of the aim: flatten it onto the ground plane.
         Vector3 flat = Vector3.ProjectOnPlane(ctx.direction, Vector3.up);
         if (flat.sqrMagnitude < 0.0001f)
@@ -64,6 +58,16 @@ public class EarthSpikeData : SkillData
         // because a cast in the air dives to the ground first, so the cube is somewhere else by then.
         GameObject owner = ctx.owner;
         LayerMask targetMask = ctx.targetMask;
+
+        // The cast motion is optional. An owner without a CubeSlam (a tower, the boss) has no motion
+        // to play, so the spikes start right away from its position. The owner's pivot should sit
+        // on the ground: the runner looks for ground from just above that point.
+        CubeSlam slam = owner.GetComponent<CubeSlam>();
+        if (slam == null)
+        {
+            SpawnSpikes(owner.transform.position, direction, owner, targetMask);
+            return true;
+        }
 
         // Play returns false when the slam refuses (already playing, controlled by something else).
         // Passing that on tells the caller not to start the cooldown.
