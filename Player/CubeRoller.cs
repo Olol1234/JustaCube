@@ -22,6 +22,11 @@ public class CubeRoller : MonoBehaviour
     // True while something else (a skill) moves the cube. See BeginControl / EndControl.
     public bool IsControlled { get; private set; }
 
+    // True while a knockback has taken control away: during the flight and for the recovery time
+    // after landing. Movement input counts as released, and jump, dash, roll and skills that take
+    // control are refused. See ApplyKnockback.
+    public bool IsStunned => Time.time < stunUntil;
+
     // The layers the cube treats as solid, so a skill that moves the cube itself (the slam dive)
     // tests against the same blocks as the movement does.
     public LayerMask GroundMask => settings != null ? settings.groundMask : (LayerMask)0;
@@ -53,6 +58,10 @@ public class CubeRoller : MonoBehaviour
     private ControlMode controlMode;
     private Vector3 controlStartPos;
     private Quaternion controlStartRot;
+
+    private float stunUntil;        // infinity during a knockback flight, then now + recovery
+    private bool knockedBack;       // in the air because of a knockback
+    private float recoveryStun;     // seconds of stun that start when the knockback lands
 
     private float HalfSize => transform.localScale.x * 0.5f;
 
@@ -96,7 +105,7 @@ public class CubeRoller : MonoBehaviour
     // jumps are left.
     public bool Jump(Vector3 direction)
     {
-        if (settings == null || IsControlled || IsDashing || jumpsUsed >= settings.maxJumps) return false;
+        if (settings == null || IsControlled || IsStunned || IsDashing || jumpsUsed >= settings.maxJumps) return false;
 
         if (!IsAirborne)
         {
@@ -136,7 +145,7 @@ public class CubeRoller : MonoBehaviour
     // picking a default (e.g. forward from the camera) is the caller's job.
     public bool Dash(Vector3 direction)
     {
-        if (settings == null || IsControlled || IsDashing || IsRolling || dashCooldownTimer > 0f) return false;
+        if (settings == null || IsControlled || IsStunned || IsDashing || IsRolling || dashCooldownTimer > 0f) return false;
 
         direction.y = 0f;
         if (direction.sqrMagnitude < 0.0001f) return false;
@@ -402,12 +411,19 @@ public class CubeRoller : MonoBehaviour
         airDashesUsed = 0;
         ApplyTilt();
 
+        // The flight of a knockback is over: the recovery stun starts now.
+        if (knockedBack)
+        {
+            knockedBack = false;
+            stunUntil = Time.time + recoveryStun;
+        }
+
         Landed?.Invoke();
     }
 
     public bool TryRoll(Vector3 direction)
     {
-        if (IsRolling || IsAirborne || IsControlled || settings == null) return false;
+        if (IsRolling || IsAirborne || IsControlled || IsStunned || settings == null) return false;
 
         direction.y = 0f;
         if (direction.sqrMagnitude < 0.0001f) return false;
@@ -423,8 +439,9 @@ public class CubeRoller : MonoBehaviour
     {
         if (IsRolling || IsAirborne || IsDashing || IsControlled || settings == null) return;
 
+        // Stunned: a held key counts as released, so a tipped cube still settles but nothing starts.
         direction.y = 0f;
-        if (direction.sqrMagnitude < 0.0001f)
+        if (IsStunned || direction.sqrMagnitude < 0.0001f)
         {
             Release(dt);
             return;
@@ -663,7 +680,8 @@ public class CubeRoller : MonoBehaviour
     // Returns false if the cube is already controlled.
     public bool BeginControl(ControlMode mode)
     {
-        if (settings == null || IsControlled) return false;
+        // A stunned cube cannot cast: the caller sees false and starts no cooldown.
+        if (settings == null || IsControlled || IsStunned) return false;
 
         IsControlled = true;
         controlMode = mode;
@@ -676,20 +694,27 @@ public class CubeRoller : MonoBehaviour
         }
 
         // Override: cancel whatever the cube was doing.
+        CancelMovement();
+        return true;
+    }
+
+    // Drops everything the roller was doing: the roll, the dash (still announced with DashEnded, so
+    // effects can stop), the tilt and both air speeds. Shared by Override control and knockback.
+    private void CancelMovement()
+    {
         StopAllCoroutines();
         IsRolling = false;
 
         if (IsDashing)
         {
             IsDashing = false;
-            DashEnded?.Invoke();    // so effects listening to the dash can stop
+            DashEnded?.Invoke();
         }
 
         tiltAngle = 0f;
         tiltVelocity = 0f;
         airVelocity = Vector3.zero;
         verticalVelocity = 0f;
-        return true;
     }
 
     // Gives the cube back to the roller. Does nothing if it was not controlled.
@@ -728,5 +753,36 @@ public class CubeRoller : MonoBehaviour
         {
             StartFall();
         }
+    }
+
+    // Pushes the cube away and takes control from the player for a moment (knockback).
+    // It cancels whatever the cube was doing (roll, tilt, dash, air), then launches it through the
+    // normal air state: a small hop (knockbackHopSpeed) plus a horizontal speed of info.strength, so
+    // wall collision and the landing stumble work exactly as for a jump. Every jump counts as used,
+    // so there is no jumping out of it. The cube is stunned (IsStunned) for the whole flight and for
+    // knockbackStunTime + info.stunTime after landing.
+    // Returns false and does nothing if there is no push, or if a skill controls the cube: the
+    // caller (PlayerKnockback) cancels the skill first.
+    public bool ApplyKnockback(KnockbackInfo info)
+    {
+        if (settings == null || IsControlled || info.IsNone) return false;
+
+        CancelMovement();
+
+        // Only the horizontal part of the direction counts; the hop supplies the height.
+        Vector3 push = info.direction;
+        push.y = 0f;
+        airVelocity = push.sqrMagnitude > 0.0001f ? push.normalized * info.strength : Vector3.zero;
+
+        IsAirborne = true;
+        verticalVelocity = settings.knockbackHopSpeed;
+        jumpsUsed = settings.maxJumps;
+
+        // A second push during the flight keeps the longer recovery.
+        float recovery = settings.knockbackStunTime + info.stunTime;
+        recoveryStun = knockedBack ? Mathf.Max(recoveryStun, recovery) : recovery;
+        knockedBack = true;
+        stunUntil = float.PositiveInfinity;
+        return true;
     }
 }
