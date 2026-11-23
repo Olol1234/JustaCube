@@ -14,6 +14,7 @@ public class InputReader : ScriptableObject
     [SerializeField] private string sprintActionPath = "Player/Sprint";
     [SerializeField] private string lockOnActionPath = "Player/LockOn";
     [SerializeField] private string dashActionPath = "Player/Dash";
+    [SerializeField] private string aimActionPath = "Player/Aim";
     [SerializeField] private string fireActionPath = "Player/Fire";
 
     // One action per skill slot, in slot order. The index is what SkillPerformed reports.
@@ -23,6 +24,7 @@ public class InputReader : ScriptableObject
     public event Action JumpPerformed;
     public event Action LockOnPerformed;
     public event Action DashPerformed;
+    public event Action AimPerformed;
     public event Action FirePerformed;
     public event Action<int> SkillPerformed;   // slot index (0, 1, 2)
 
@@ -36,6 +38,7 @@ public class InputReader : ScriptableObject
     private InputAction sprintAction;
     private InputAction lockOnAction;
     private InputAction dashAction;
+    private InputAction aimAction;
     private InputAction fireAction;
     private InputAction[] skillActions;
     private Action<InputAction.CallbackContext>[] skillHandlers;   // kept so Disable can unsubscribe the same ones
@@ -64,6 +67,9 @@ public class InputReader : ScriptableObject
         dashAction = actions.FindAction(dashActionPath, throwIfNotFound: true);
         dashAction.performed += OnDash;
         dashAction.Enable();
+        aimAction = actions.FindAction(aimActionPath, throwIfNotFound: true);
+        aimAction.performed += OnAim;
+        aimAction.Enable();
         fireAction = actions.FindAction(fireActionPath, throwIfNotFound: true);
         fireAction.performed += OnFire;
         fireAction.Enable();
@@ -95,6 +101,8 @@ public class InputReader : ScriptableObject
         lockOnAction.Disable();
         dashAction.performed -= OnDash;
         dashAction.Disable();
+        aimAction.performed -= OnAim;
+        aimAction.Disable();
         fireAction.performed -= OnFire;
         fireAction.Disable();
         for (int i = 0; i < skillActions.Length; i++)
@@ -108,6 +116,7 @@ public class InputReader : ScriptableObject
         sprintAction = null;
         lockOnAction = null;
         dashAction = null;
+        aimAction = null;
         fireAction = null;
         skillActions = null;
         skillHandlers = null;
@@ -117,5 +126,6 @@ public class InputReader : ScriptableObject
     private void OnJump(InputAction.CallbackContext ctx) => JumpPerformed?.Invoke();
     private void OnLockOn(InputAction.CallbackContext ctx) => LockOnPerformed?.Invoke();
     private void OnDash(InputAction.CallbackContext ctx) => DashPerformed?.Invoke();
+    private void OnAim(InputAction.CallbackContext ctx) => AimPerformed?.Invoke();
     private void OnFire(InputAction.CallbackContext ctx) => FirePerformed?.Invoke();
 }
