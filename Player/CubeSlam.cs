@@ -10,7 +10,7 @@ using UnityEngine;
 // or the dive runs out of distance or time (the roller is overridden, so over a pit the cube just
 // falls on normally). onImpact fires only if the dive actually hit something.
 [RequireComponent(typeof(CubeRoller))]
-public class CubeSlam : MonoBehaviour
+public class CubeSlam : MonoBehaviour, ICancellable
 {
     // The dive box is a little smaller than the cube, so a wall brushing the side does not count as
     // a hit on the way down.
