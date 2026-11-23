@@ -17,13 +17,13 @@ public class PlayerKnockback : MonoBehaviour, IKnockable
 {
     private CubeRoller roller;
     private Health health;
-    private CubeSlam slam;      // optional: only needed to interrupt a slam
+    private ICancellable[] casts;   // every interruptible cast on the player (slam, aim...), may be empty
 
     private void Awake()
     {
         roller = GetComponent<CubeRoller>();
         health = GetComponent<Health>();
-        slam = GetComponent<CubeSlam>();
+        casts = GetComponents<ICancellable>();
     }
 
     private void OnEnable()
@@ -45,9 +45,12 @@ public class PlayerKnockback : MonoBehaviour, IKnockable
     {
         if (info.IsNone) return;
 
-        // A slam or dive is a commitment, but a push interrupts it completely. Cancel gives the
-        // cube back to the roller (EndControl), which refuses a push while a skill controls it.
-        if (slam != null && slam.IsPlaying) slam.Cancel();
+        // A cast is a commitment, but a push interrupts it completely. Cancel gives the cube back
+        // to the roller (EndControl), which refuses a push while a skill controls it.
+        foreach (ICancellable cast in casts)
+        {
+            if (cast.IsPlaying) cast.Cancel();
+        }
 
         roller.ApplyKnockback(info);
     }

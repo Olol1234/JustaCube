@@ -15,7 +15,7 @@ public class PlayerDeath : MonoBehaviour
 
     private Health health;
     private CubeRoller roller;
-    private CubeSlam slam;
+    private ICancellable[] casts;
     private PlayerCubeInput moveInput;
     private PlayerAttacker attacker;
 
@@ -23,7 +23,7 @@ public class PlayerDeath : MonoBehaviour
     {
         health = GetComponent<Health>();
         roller = GetComponent<CubeRoller>();
-        slam = GetComponent<CubeSlam>();
+        casts = GetComponents<ICancellable>();
         moveInput = GetComponent<PlayerCubeInput>();
         attacker = GetComponent<PlayerAttacker>();
     }
@@ -45,10 +45,10 @@ public class PlayerDeath : MonoBehaviour
         IsDead = true;
 
         // Cancel first, so the roller is never left frozen under a skill's control.
-        if (slam != null)
+        foreach (ICancellable cast in casts)
         {
-            slam.Cancel();
-            slam.enabled = false;
+            cast.Cancel();
+            if (cast is Behaviour behaviour) behaviour.enabled = false;
         }
         if (attacker != null) attacker.enabled = false;
         if (moveInput != null) moveInput.enabled = false;
