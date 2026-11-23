@@ -3,12 +3,14 @@ using UnityEngine;
 // Orbits around a target using look input and follows its position only,
 // so the camera stays steady while the cube tumbles.
 // Has a small state machine: Free (look input orbits) and Locked (the camera
-// steers itself toward a Lockable and ignores look input). An Aiming state
-// can be added later for shooting.
+// steers itself toward a Lockable and ignores look input) and Aiming (look input
+// orbits again, even if a target is locked, and the follow runs on unscaled time so slow-mo
+// does not make the camera lag). Whoever starts an aim calls EnterAim / ExitAim; the camera
+// does not know who that is.
 [RequireComponent(typeof(TargetFinder))]
 public class ThirdPersonCamera : MonoBehaviour
 {
-    private enum CameraState { Free, Locked }
+    private enum CameraState { Free, Locked, Aiming }
 
     // Announced so other scripts (e.g. the lock-on marker) can react without the camera knowing them.
     public event System.Action<Lockable> TargetLocked;
@@ -20,6 +22,7 @@ public class ThirdPersonCamera : MonoBehaviour
 
     private TargetFinder finder;
     private CameraState state = CameraState.Free;
+    private CameraState stateBeforeAim = CameraState.Free;   // Free or Locked, restored by ExitAim
     private Lockable lockedTarget;
 
     private float yaw;
@@ -69,6 +72,8 @@ public class ThirdPersonCamera : MonoBehaviour
     // Lock key: unlock if locked, otherwise lock onto the best target (if any).
     private void OnLockOn()
     {
+        if (state == CameraState.Aiming) return;   // the lock key does nothing mid-aim
+
         if (state == CameraState.Locked)
         {
             Unlock();
@@ -92,6 +97,31 @@ public class ThirdPersonCamera : MonoBehaviour
         TargetUnlocked?.Invoke();
     }
 
+    // Frees the camera for manual aim. A locked target stays remembered, so ExitAim can go back to it.
+    public void EnterAim()
+    {
+        if (state == CameraState.Aiming) return;
+        stateBeforeAim = state;
+        state = CameraState.Aiming;
+    }
+
+    // Returns to what the camera was doing before the aim. If it was locked and that target is
+    // gone by now, it unlocks instead of pointing at nothing.
+    public void ExitAim()
+    {
+        if (state != CameraState.Aiming) return;
+
+        yawVelocity = 0f;
+        pitchVelocity = 0f;
+
+        if (stateBeforeAim == CameraState.Locked && lockedTarget == null)
+        {
+            Unlock();
+            return;
+        }
+        state = stateBeforeAim;
+    }
+
     private void LateUpdate()
     {
         if (target == null || settings == null) return;
@@ -99,11 +129,15 @@ public class ThirdPersonCamera : MonoBehaviour
         // The target was destroyed while locked.
         if (state == CameraState.Locked && lockedTarget == null) Unlock();
 
-        focusPoint = Vector3.SmoothDamp(focusPoint, FocusTarget(), ref focusVelocity, settings.followSmoothTime);
+        // Slow-mo must not make the camera lag behind the cube, so aiming follows on unscaled time.
+        float followDelta = state == CameraState.Aiming ? Time.unscaledDeltaTime : Time.deltaTime;
+        focusPoint = Vector3.SmoothDamp(focusPoint, FocusTarget(), ref focusVelocity,
+            settings.followSmoothTime, Mathf.Infinity, followDelta);
 
         switch (state)
         {
-            case CameraState.Free: UpdateFree(); break;
+            case CameraState.Free:
+            case CameraState.Aiming: UpdateFree(); break;
             case CameraState.Locked: UpdateLocked(); break;
         }
 
