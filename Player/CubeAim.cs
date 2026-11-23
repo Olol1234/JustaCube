@@ -5,8 +5,9 @@ using UnityEngine;
 // The aimed shot's cast. Right-click (the Aim action) starts it, right-click again cancels, and a
 // landed hit also ends it. While it plays the cube is under the roller's Override control: it
 // rises and hovers (no gravity), and when it ends the roller finds no ground and lets it fall.
-// Knows nothing about what happens during the hover (slow-mo, camera, firing): those are added
-// as separate steps, and listeners (visuals, UI) hook into AimStarted / AimEnded.
+// After the rise comes the aim window: slow-mo, the camera freed for manual aim, and a timer on
+// real (unscaled) time. When the window runs out the aim ends like a cancel. Firing is added as
+// a separate step. Listeners (visuals, UI) hook into AimStarted / AimEnded.
 [RequireComponent(typeof(CubeRoller))]
 public class CubeAim : MonoBehaviour, ICancellable
 {
@@ -15,13 +16,19 @@ public class CubeAim : MonoBehaviour, ICancellable
     public event Action AimEnded;
 
     [SerializeField] private InputReader input;
+    [SerializeField] private TimeScaleController timeScale;   // optional: empty = no slow-mo
+    [SerializeField] private ThirdPersonCamera aimCamera;      // optional: empty = the camera is not freed
     [SerializeField] private AimMotion motion = new AimMotion();
 
     public bool IsPlaying { get; private set; }
 
+    // Seconds left in the aim window, for a timer bar. 0 outside the aim phase.
+    public float WindowRemaining { get; private set; }
+
     private CubeRoller roller;
     private Health health;      // optional: a landed hit ends the aim
     private Coroutine routine;
+    private int slowMoHandle = -1;   // -1 = no slow-mo request held
 
     private void Awake()
     {
@@ -83,8 +90,8 @@ public class CubeAim : MonoBehaviour, ICancellable
         End();
     }
 
-    // The single way out. Fire, cancel, timeout, a hit and OnDisable all end here, so a later
-    // cleanup step (release slow-mo, free the camera) is added in exactly one place.
+    // The single way out. Fire, cancel, timeout, a hit and OnDisable all end here, so slow-mo can
+    // never be left on and the camera can never be left free.
     private void End()
     {
         if (!IsPlaying) return;
@@ -92,6 +99,11 @@ public class CubeAim : MonoBehaviour, ICancellable
         if (routine != null) StopCoroutine(routine);
         routine = null;
         IsPlaying = false;
+        WindowRemaining = 0f;
+
+        if (slowMoHandle >= 0 && timeScale != null) timeScale.Release(slowMoHandle);
+        slowMoHandle = -1;
+        if (aimCamera != null) aimCamera.ExitAim();
 
         // Override: the roller rests the cube on the ground, or lets it fall if there is none.
         if (roller != null) roller.EndControl();
@@ -118,9 +130,21 @@ public class CubeAim : MonoBehaviour, ICancellable
         transform.position = top;
         transform.rotation = flat;
 
-        // Hover. The aim window (slow-mo, free camera, fire) goes here in the next step; for now
-        // the cube hovers until the aim key is pressed again or a hit lands.
-        while (true) yield return null;
+        // Aim window: slow-mo and a free camera, for a fixed number of real seconds. The timer uses
+        // unscaled time (or the window would stretch with the slow-mo) and stands still while the
+        // game is paused.
+        if (timeScale != null) slowMoHandle = timeScale.RequestSlowMo(motion.slowMoScale);
+        if (aimCamera != null) aimCamera.EnterAim();
+
+        WindowRemaining = motion.aimWindow;
+        while (WindowRemaining > 0f)
+        {
+            if (timeScale == null || !timeScale.Paused) WindowRemaining -= Time.unscaledDeltaTime;
+            yield return null;
+        }
+
+        // The window ran out: same as a cancel.
+        End();
     }
 
     // The orientation with every axis a multiple of 90 degrees nearest to `rot`. The same helper
