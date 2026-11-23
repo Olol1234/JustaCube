@@ -1,9 +1,9 @@
 using System;
 using UnityEngine;
 
-// The numbers for the aimed shot's cast: how the cube rises into its hover. Data only, no logic.
-// Serializable, so CubeAim can hold one as a foldout field. More fields (slow-mo, aim window,
-// muzzle) are added together with the code that uses them.
+// The numbers for the aimed shot's cast: the rise into the hover and the aim window. Data only,
+// no logic. Serializable, so CubeAim can hold one as a foldout field. More fields (muzzle) are
+// added together with the code that uses them.
 [Serializable]
 public class AimMotion
 {
@@ -19,4 +19,11 @@ public class AimMotion
 
     [Tooltip("How fast (degrees per second) a tilted cube turns flat while it rises, so it does not hover at an angle.")]
     [Min(0f)] public float flattenSpeed = 720f;
+
+    [Header("Aim window")]
+    [Tooltip("Game speed while aiming (0.2 = five times slower). Needs a TimeScaleController on CubeAim.")]
+    [Range(0.05f, 1f)] public float slowMoScale = 0.2f;
+
+    [Tooltip("Real seconds (not slowed down) the player has to fire before the aim ends on its own.")]
+    [Min(0.5f)] public float aimWindow = 4f;
 }
