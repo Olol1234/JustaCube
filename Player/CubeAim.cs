@@ -46,6 +46,10 @@ public class CubeAim : MonoBehaviour, ICancellable
     // The full length (s) of the aim window, so a timer bar can turn WindowRemaining into 0..1.
     public float WindowLength => motion.aimWindow;
 
+    // The Time.frameCount of the frame the last aim ended on (-1 = never). Lets PlayerAttacker ignore
+    // the skill press that arrives on the same frame as the click that fired or cancelled the aim.
+    public int LastEndFrame { get; private set; } = -1;
+
     private CubeRoller roller;
     private Health health;      // optional: a landed hit ends the aim
     private Camera viewCamera;  // the camera whose screen centre is the aim point
@@ -164,6 +168,7 @@ public class CubeAim : MonoBehaviour, ICancellable
         if (routine != null) StopCoroutine(routine);
         routine = null;
         IsPlaying = false;
+        LastEndFrame = Time.frameCount;
         inWindow = false;
         WindowRemaining = 0f;
 
