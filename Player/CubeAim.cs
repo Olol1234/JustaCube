@@ -43,6 +43,9 @@ public class CubeAim : MonoBehaviour, ICancellable
     // Seconds left in the aim window, for a timer bar. 0 outside the aim phase.
     public float WindowRemaining { get; private set; }
 
+    // The full length (s) of the aim window, so a timer bar can turn WindowRemaining into 0..1.
+    public float WindowLength => motion.aimWindow;
+
     private CubeRoller roller;
     private Health health;      // optional: a landed hit ends the aim
     private Camera viewCamera;  // the camera whose screen centre is the aim point
