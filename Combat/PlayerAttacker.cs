@@ -19,10 +19,12 @@ public class PlayerAttacker : MonoBehaviour
     private float[] readyAt;          // Time.time at which each slot may fire again
     private Lockable lockedTarget;
     private ICancellable[] casts;     // the player's interruptible casts (slam, aim...): none may run when a skill starts
+    private CubeAim aim;              // optional: tells which frame an aim ended on
 
     private void Awake()
     {
         casts = GetComponents<ICancellable>();
+        aim = GetComponent<CubeAim>();
     }
 
     private void OnEnable()
@@ -52,6 +54,10 @@ public class PlayerAttacker : MonoBehaviour
     {
         if (slot < 0 || slot >= slots.Length) return;
         if (IsCastPlaying()) return;   // whatever started first finishes first, nothing interrupts it
+
+        // The click that fired or cancelled the aim may also be this skill's key. The aim has already
+        // ended by now (or will in this same frame), so IsCastPlaying alone cannot catch it.
+        if (aim != null && aim.LastEndFrame == Time.frameCount) return;
 
         SkillData skill = slots[slot];
         if (skill == null) return;
