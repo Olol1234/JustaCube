@@ -18,6 +18,12 @@ public class PlayerAttacker : MonoBehaviour
 
     private float[] readyAt;          // Time.time at which each slot may fire again
     private Lockable lockedTarget;
+    private ICancellable[] casts;     // the player's interruptible casts (slam, aim...): none may run when a skill starts
+
+    private void Awake()
+    {
+        casts = GetComponents<ICancellable>();
+    }
 
     private void OnEnable()
     {
@@ -45,6 +51,7 @@ public class PlayerAttacker : MonoBehaviour
     private void OnSkill(int slot)
     {
         if (slot < 0 || slot >= slots.Length) return;
+        if (IsCastPlaying()) return;   // whatever started first finishes first, nothing interrupts it
 
         SkillData skill = slots[slot];
         if (skill == null) return;
@@ -56,6 +63,15 @@ public class PlayerAttacker : MonoBehaviour
         if (!skill.Use(ctx)) return;
 
         readyAt[slot] = Time.time + skill.cooldown;
+    }
+
+    private bool IsCastPlaying()
+    {
+        for (int i = 0; i < casts.Length; i++)
+        {
+            if (casts[i].IsPlaying) return true;
+        }
+        return false;
     }
 
     private Vector3 GetAimDirection()
