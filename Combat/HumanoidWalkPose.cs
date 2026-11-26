@@ -1,9 +1,15 @@
 using UnityEngine;
 
-// Poses the boss's joints into a walk, based on how far the boss has actually moved.
-// It never moves the boss itself (apart from the temporary test walk at the bottom).
-public class BossWalkPose : MonoBehaviour
+// Poses a humanoid's joints into a walk, based on how far it has actually moved.
+// It never moves the object itself (apart from the temporary test walk at the bottom).
+// The walk numbers come from a HumanoidWalkStyle asset. They are read every frame, so the asset
+// can be edited or swapped while the game runs.
+public class HumanoidWalkPose : MonoBehaviour
 {
+    [Header("Style")]
+    [Tooltip("The walk's numbers. Without one, no walk pose is applied.")]
+    [SerializeField] private HumanoidWalkStyle style;
+
     [Header("Joints")]
     [SerializeField] private Transform hips;
     [SerializeField] private Transform hipLeft;
@@ -12,25 +18,6 @@ public class BossWalkPose : MonoBehaviour
     [SerializeField] private Transform kneeRight;
     [SerializeField] private Transform shoulderLeft;
     [SerializeField] private Transform shoulderRight;
-
-    [Header("Cycle")]
-    [Tooltip("Distance covered in one full cycle (two steps). Raise it if you raise Leg Swing.")]
-    [SerializeField, Min(0.1f)] private float cycleLength = 6.3f;
-    [Tooltip("How fast the pose eases in when walking starts and out when it stops.")]
-    [SerializeField, Min(0.1f)] private float blendSpeed = 4f;
-    [Tooltip("Moving slower than this counts as standing still.")]
-    [SerializeField, Min(0f)] private float minWalkSpeed = 0.1f;
-
-    [Header("Swing (degrees)")]
-    [SerializeField] private float legSwing = 25f;
-    [SerializeField] private float kneeBend = 40f;
-    [SerializeField] private float armSwing = 20f;
-    [Tooltip("How far the arms are lowered from the T-pose.")]
-    [SerializeField] private float armDownAngle = 80f;
-
-    [Header("Body")]
-    [Tooltip("How far the body drops at full stride.")]
-    [SerializeField] private float bobHeight = 0.3f;
 
     [Header("Debug")]
     [SerializeField] private float phase;
@@ -59,6 +46,8 @@ public class BossWalkPose : MonoBehaviour
         shoulderLeftRest = shoulderLeft.localRotation;
         shoulderRightRest = shoulderRight.localRotation;
         hipsRestPosition = hips.localPosition;
+
+        if (style == null) Debug.LogWarning($"{name}: no walk style assigned.", this);
     }
 
     private void OnEnable()
@@ -74,6 +63,8 @@ public class BossWalkPose : MonoBehaviour
     // LateUpdate, so any movement done in Update (by any script) is already applied.
     private void LateUpdate()
     {
+        if (style == null) return;
+
         AdvanceCycle(Time.deltaTime);
         ApplyPose();
     }
@@ -87,10 +78,10 @@ public class BossWalkPose : MonoBehaviour
         if (deltaTime <= 0f) return; // paused
 
         float distance = moved.magnitude;
-        phase = Mathf.Repeat(phase + distance / cycleLength * Mathf.PI * 2f, Mathf.PI * 2f);
+        phase = Mathf.Repeat(phase + distance / style.cycleLength * Mathf.PI * 2f, Mathf.PI * 2f);
 
-        bool isWalking = distance / deltaTime > minWalkSpeed;
-        walkWeight = Mathf.MoveTowards(walkWeight, isWalking ? 1f : 0f, blendSpeed * deltaTime);
+        bool isWalking = distance / deltaTime > style.minWalkSpeed;
+        walkWeight = Mathf.MoveTowards(walkWeight, isWalking ? 1f : 0f, style.blendSpeed * deltaTime);
     }
 
     private void ApplyPose()
@@ -99,12 +90,12 @@ public class BossWalkPose : MonoBehaviour
         float cos = Mathf.Cos(phase);
 
         // Negative X swings a hanging limb forward. The left leg moves forward while cos > 0.
-        float leftHip = -sin * legSwing * walkWeight;
-        float rightHip = sin * legSwing * walkWeight;
+        float leftHip = -sin * style.legSwing * walkWeight;
+        float rightHip = sin * style.legSwing * walkWeight;
 
         // A knee only bends while its own leg is moving forward.
-        float leftKnee = Mathf.Max(0f, cos) * kneeBend * walkWeight;
-        float rightKnee = Mathf.Max(0f, -cos) * kneeBend * walkWeight;
+        float leftKnee = Mathf.Max(0f, cos) * style.kneeBend * walkWeight;
+        float rightKnee = Mathf.Max(0f, -cos) * style.kneeBend * walkWeight;
 
         hipLeft.localRotation = Swing(leftHip) * hipLeftRest;
         hipRight.localRotation = Swing(rightHip) * hipRightRest;
@@ -112,12 +103,12 @@ public class BossWalkPose : MonoBehaviour
         kneeRight.localRotation = Swing(rightKnee) * kneeRightRest;
 
         // Lower the arm first, then swing it opposite to the leg on the same side.
-        float arm = sin * armSwing * walkWeight;
-        shoulderLeft.localRotation = Swing(arm) * Quaternion.Euler(0f, 0f, armDownAngle) * shoulderLeftRest;
-        shoulderRight.localRotation = Swing(-arm) * Quaternion.Euler(0f, 0f, -armDownAngle) * shoulderRightRest;
+        float arm = sin * style.armSwing * walkWeight;
+        shoulderLeft.localRotation = Swing(arm) * Quaternion.Euler(0f, 0f, style.armDownAngle) * shoulderLeftRest;
+        shoulderRight.localRotation = Swing(-arm) * Quaternion.Euler(0f, 0f, -style.armDownAngle) * shoulderRightRest;
 
         // Highest when the legs pass each other, lowest at full stride.
-        float drop = (1f - Mathf.Abs(cos)) * bobHeight * walkWeight;
+        float drop = (1f - Mathf.Abs(cos)) * style.bobHeight * walkWeight;
         hips.localPosition = hipsRestPosition + Vector3.down * drop;
     }
 
