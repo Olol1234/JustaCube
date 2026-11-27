@@ -40,6 +40,14 @@ public class RigJoint
 
         pivot.localRotation = offset * RestRotation;
     }
+
+    // Moves the joint away from its rest position, in the parent's space.
+    public void Shift(Vector3 offset)
+    {
+        if (!isCaptured || pivot == null) return;
+
+        pivot.localPosition = RestPosition + offset;
+    }
 }
 
 // The one place that knows a humanoid's skeleton. It saves the rest pose, and every frame puts

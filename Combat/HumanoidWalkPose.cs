@@ -4,20 +4,13 @@ using UnityEngine;
 // It never moves the object itself (apart from the temporary test walk at the bottom).
 // The walk numbers come from a HumanoidWalkStyle asset. They are read every frame, so the asset
 // can be edited or swapped while the game runs.
+// The joints and their rest poses come from the HumanoidRig on the same object.
+[RequireComponent(typeof(HumanoidRig))]
 public class HumanoidWalkPose : MonoBehaviour
 {
     [Header("Style")]
     [Tooltip("The walk's numbers. Without one, no walk pose is applied.")]
     [SerializeField] private HumanoidWalkStyle style;
-
-    [Header("Joints")]
-    [SerializeField] private Transform hips;
-    [SerializeField] private Transform hipLeft;
-    [SerializeField] private Transform hipRight;
-    [SerializeField] private Transform kneeLeft;
-    [SerializeField] private Transform kneeRight;
-    [SerializeField] private Transform shoulderLeft;
-    [SerializeField] private Transform shoulderRight;
 
     [Header("Debug")]
     [SerializeField] private float phase;
@@ -26,26 +19,13 @@ public class HumanoidWalkPose : MonoBehaviour
     [SerializeField] private float testSpeed = 2f;
     private bool testWalking;
 
-    private Quaternion hipLeftRest;
-    private Quaternion hipRightRest;
-    private Quaternion kneeLeftRest;
-    private Quaternion kneeRightRest;
-    private Quaternion shoulderLeftRest;
-    private Quaternion shoulderRightRest;
-    private Vector3 hipsRestPosition;
-
+    private HumanoidRig rig;
     private Vector3 lastPosition;
     private float walkWeight; // 0 = standing, 1 = full walk
 
     private void Awake()
     {
-        hipLeftRest = hipLeft.localRotation;
-        hipRightRest = hipRight.localRotation;
-        kneeLeftRest = kneeLeft.localRotation;
-        kneeRightRest = kneeRight.localRotation;
-        shoulderLeftRest = shoulderLeft.localRotation;
-        shoulderRightRest = shoulderRight.localRotation;
-        hipsRestPosition = hips.localPosition;
+        rig = GetComponent<HumanoidRig>();
 
         if (style == null) Debug.LogWarning($"{name}: no walk style assigned.", this);
     }
@@ -97,19 +77,19 @@ public class HumanoidWalkPose : MonoBehaviour
         float leftKnee = Mathf.Max(0f, cos) * style.kneeBend * walkWeight;
         float rightKnee = Mathf.Max(0f, -cos) * style.kneeBend * walkWeight;
 
-        hipLeft.localRotation = Swing(leftHip) * hipLeftRest;
-        hipRight.localRotation = Swing(rightHip) * hipRightRest;
-        kneeLeft.localRotation = Swing(leftKnee) * kneeLeftRest;
-        kneeRight.localRotation = Swing(rightKnee) * kneeRightRest;
+        rig.HipLeft.Pose(Swing(leftHip));
+        rig.HipRight.Pose(Swing(rightHip));
+        rig.KneeLeft.Pose(Swing(leftKnee));
+        rig.KneeRight.Pose(Swing(rightKnee));
 
         // Lower the arm first, then swing it opposite to the leg on the same side.
         float arm = sin * style.armSwing * walkWeight;
-        shoulderLeft.localRotation = Swing(arm) * Quaternion.Euler(0f, 0f, style.armDownAngle) * shoulderLeftRest;
-        shoulderRight.localRotation = Swing(-arm) * Quaternion.Euler(0f, 0f, -style.armDownAngle) * shoulderRightRest;
+        rig.ShoulderLeft.Pose(Swing(arm) * Quaternion.Euler(0f, 0f, style.armDownAngle));
+        rig.ShoulderRight.Pose(Swing(-arm) * Quaternion.Euler(0f, 0f, -style.armDownAngle));
 
         // Highest when the legs pass each other, lowest at full stride.
         float drop = (1f - Mathf.Abs(cos)) * style.bobHeight * walkWeight;
-        hips.localPosition = hipsRestPosition + Vector3.down * drop;
+        rig.Hips.Shift(Vector3.down * drop);
     }
 
     private static Quaternion Swing(float degrees)
