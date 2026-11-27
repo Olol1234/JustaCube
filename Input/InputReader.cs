@@ -16,6 +16,8 @@ public class InputReader : ScriptableObject
     [SerializeField] private string dashActionPath = "Player/Dash";
     [SerializeField] private string aimActionPath = "Player/Aim";
     [SerializeField] private string fireActionPath = "Player/Fire";
+    [SerializeField] private string releaseCursorActionPath = "Player/ReleaseCursor";
+    [SerializeField] private string captureCursorActionPath = "Player/CaptureCursor";
 
     // One action per skill slot, in slot order. The index is what SkillPerformed reports.
     [SerializeField] private string[] skillActionPaths = { "Player/Attack", "Player/Attack2", "Player/Attack3" };
@@ -26,6 +28,8 @@ public class InputReader : ScriptableObject
     public event Action DashPerformed;
     public event Action AimPerformed;
     public event Action FirePerformed;
+    public event Action ReleaseCursorPerformed;
+    public event Action CaptureCursorPerformed;
     public event Action<int> SkillPerformed;   // slot index (0, 1, 2)
 
     public Vector2 Move => moveAction != null ? moveAction.ReadValue<Vector2>() : Vector2.zero;
@@ -40,6 +44,8 @@ public class InputReader : ScriptableObject
     private InputAction dashAction;
     private InputAction aimAction;
     private InputAction fireAction;
+    private InputAction releaseCursorAction;
+    private InputAction captureCursorAction;
     private InputAction[] skillActions;
     private Action<InputAction.CallbackContext>[] skillHandlers;   // kept so Disable can unsubscribe the same ones
     private int users;
@@ -73,6 +79,12 @@ public class InputReader : ScriptableObject
         fireAction = actions.FindAction(fireActionPath, throwIfNotFound: true);
         fireAction.performed += OnFire;
         fireAction.Enable();
+        releaseCursorAction = actions.FindAction(releaseCursorActionPath, throwIfNotFound: true);
+        releaseCursorAction.performed += OnReleaseCursor;
+        releaseCursorAction.Enable();
+        captureCursorAction = actions.FindAction(captureCursorActionPath, throwIfNotFound: true);
+        captureCursorAction.performed += OnCaptureCursor;
+        captureCursorAction.Enable();
 
         skillActions = new InputAction[skillActionPaths.Length];
         skillHandlers = new Action<InputAction.CallbackContext>[skillActionPaths.Length];
@@ -105,6 +117,10 @@ public class InputReader : ScriptableObject
         aimAction.Disable();
         fireAction.performed -= OnFire;
         fireAction.Disable();
+        releaseCursorAction.performed -= OnReleaseCursor;
+        releaseCursorAction.Disable();
+        captureCursorAction.performed -= OnCaptureCursor;
+        captureCursorAction.Disable();
         for (int i = 0; i < skillActions.Length; i++)
         {
             skillActions[i].performed -= skillHandlers[i];
@@ -118,6 +134,8 @@ public class InputReader : ScriptableObject
         dashAction = null;
         aimAction = null;
         fireAction = null;
+        releaseCursorAction = null;
+        captureCursorAction = null;
         skillActions = null;
         skillHandlers = null;
     }
@@ -128,4 +146,6 @@ public class InputReader : ScriptableObject
     private void OnDash(InputAction.CallbackContext ctx) => DashPerformed?.Invoke();
     private void OnAim(InputAction.CallbackContext ctx) => AimPerformed?.Invoke();
     private void OnFire(InputAction.CallbackContext ctx) => FirePerformed?.Invoke();
+    private void OnReleaseCursor(InputAction.CallbackContext ctx) => ReleaseCursorPerformed?.Invoke();
+    private void OnCaptureCursor(InputAction.CallbackContext ctx) => CaptureCursorPerformed?.Invoke();
 }

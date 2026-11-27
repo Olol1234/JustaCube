@@ -50,12 +50,10 @@ public class ThirdPersonCamera : MonoBehaviour
         {
             input.Enable();
             input.LockOnPerformed += OnLockOn;
+            input.ReleaseCursorPerformed += OnReleaseCursor;
+            input.CaptureCursorPerformed += OnCaptureCursor;
         }
-        if (settings != null && settings.lockCursor)
-        {
-            Cursor.lockState = CursorLockMode.Locked;
-            Cursor.visible = false;
-        }
+        if (settings != null && settings.lockCursor) SetCursorLocked(true);
     }
 
     private void OnDisable()
@@ -63,10 +61,26 @@ public class ThirdPersonCamera : MonoBehaviour
         if (input != null)
         {
             input.LockOnPerformed -= OnLockOn;
+            input.ReleaseCursorPerformed -= OnReleaseCursor;
+            input.CaptureCursorPerformed -= OnCaptureCursor;
             input.Disable();
         }
-        Cursor.lockState = CursorLockMode.None;
-        Cursor.visible = true;
+        SetCursorLocked(false);
+    }
+
+    // The game sets the cursor state itself: the Editor's own Esc handling frees the mouse
+    // without Cursor.lockState reliably showing it.
+    private void OnReleaseCursor() => SetCursorLocked(false);
+
+    private void OnCaptureCursor()
+    {
+        if (settings != null && settings.lockCursor) SetCursorLocked(true);
+    }
+
+    private static void SetCursorLocked(bool locked)
+    {
+        Cursor.lockState = locked ? CursorLockMode.Locked : CursorLockMode.None;
+        Cursor.visible = !locked;
     }
 
     // Lock key: unlock if locked, otherwise lock onto the best target (if any).
