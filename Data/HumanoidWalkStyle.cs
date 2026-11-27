@@ -19,6 +19,8 @@ public class HumanoidWalkStyle : ScriptableObject
     [Tooltip("Positive bends like a human knee, negative bends the other way.")]
     public float kneeBend = 40f;
     public float armSwing = 20f;
+    [Tooltip("How much an elbow bends when its arm is swung forward. Positive bends like a human elbow, negative bends the other way, 0 keeps it straight. Assumes a body built in a T-pose.")]
+    public float elbowBend = 0f;
     [Tooltip("How far the arms are lowered from the T-pose. 0 for a body built with its arms already down.")]
     public float armDownAngle = 80f;
 

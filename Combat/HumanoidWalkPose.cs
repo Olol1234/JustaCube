@@ -87,6 +87,15 @@ public class HumanoidWalkPose : MonoBehaviour
         rig.ShoulderLeft.Pose(Swing(arm) * Quaternion.Euler(0f, 0f, style.armDownAngle));
         rig.ShoulderRight.Pose(Swing(-arm) * Quaternion.Euler(0f, 0f, -style.armDownAngle));
 
+        // An elbow bends only while its own arm is in front: most at the front of the swing.
+        float leftElbow = Mathf.Max(0f, -sin) * style.elbowBend * walkWeight;
+        float rightElbow = Mathf.Max(0f, sin) * style.elbowBend * walkWeight;
+
+        // The forearms point sideways in the T-pose, so they bend around Y (X would only twist them).
+        // The two arms point opposite ways, so they need opposite signs to both bend forward.
+        rig.ElbowLeft.Pose(Quaternion.Euler(0f, leftElbow, 0f));
+        rig.ElbowRight.Pose(Quaternion.Euler(0f, -rightElbow, 0f));
+
         // Highest when the legs pass each other, lowest at full stride.
         float drop = (1f - Mathf.Abs(cos)) * style.bobHeight * walkWeight;
         rig.Hips.Shift(Vector3.down * drop);
