@@ -67,6 +67,14 @@ public class HumanoidRig : MonoBehaviour
     [SerializeField] private RigJoint kneeLeft;
     [SerializeField] private RigJoint kneeRight;
 
+    [Header("Feet")]
+    [Tooltip("An empty at the centre of the left sole, under the left knee, with zero rotation. Never posed.")]
+    [SerializeField] private Transform footLeft;
+    [Tooltip("An empty at the centre of the right sole, under the right knee, with zero rotation. Never posed.")]
+    [SerializeField] private Transform footRight;
+    [Tooltip("Radius of a round sole, so a tilted foot is measured by its edge. 0 = a single point.")]
+    [Min(0f)] [SerializeField] private float soleRadius = 0f;
+
     [Header("Arms")]
     [SerializeField] private RigJoint shoulderLeft;
     [SerializeField] private RigJoint shoulderRight;
@@ -85,7 +93,27 @@ public class HumanoidRig : MonoBehaviour
     public RigJoint ElbowLeft => elbowLeft;
     public RigJoint ElbowRight => elbowRight;
 
+    public bool HasFeet => footLeft != null && footRight != null;
+
+    // The lowest sole's height in the rest pose, measured from this object.
+    public float RestSoleHeight { get; private set; }
+
     private RigJoint[] joints;
+
+    // The lowest point of either sole in the current pose, measured from this object.
+    // Only meaningful when HasFeet is true.
+    public float LowestSoleHeight() => Mathf.Min(SoleHeight(footLeft), SoleHeight(footRight));
+
+    private float SoleHeight(Transform foot)
+    {
+        float centre = transform.InverseTransformPoint(foot.position).y;
+
+        // A tilted round sole reaches lower than its centre.
+        float rightY = transform.InverseTransformDirection(foot.right).y;
+        float forwardY = transform.InverseTransformDirection(foot.forward).y;
+
+        return centre - soleRadius * Mathf.Sqrt(rightY * rightY + forwardY * forwardY);
+    }
 
     private void Awake()
     {
@@ -106,6 +134,9 @@ public class HumanoidRig : MonoBehaviour
         Capture(shoulderRight, nameof(shoulderRight));
         Capture(elbowLeft, nameof(elbowLeft));
         Capture(elbowRight, nameof(elbowRight));
+
+        // Measured here, because nothing has posed the body yet.
+        if (HasFeet) RestSoleHeight = LowestSoleHeight();
     }
 
     // Update runs before every LateUpdate, so the reset always happens before any posing.
