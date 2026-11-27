@@ -149,7 +149,9 @@ public class ThirdPersonCamera : MonoBehaviour
 
     private void UpdateFree()
     {
-        Vector2 look = input != null ? input.Look : Vector2.zero;
+        // With cursor locking on, a freed cursor (Esc in the Editor) must not turn the camera.
+        bool canLook = !settings.lockCursor || Cursor.lockState == CursorLockMode.Locked;
+        Vector2 look = input != null && canLook ? input.Look : Vector2.zero;
         yaw += look.x * settings.sensitivity;
         pitch += look.y * settings.sensitivity * (settings.invertY ? 1f : -1f);
         pitch = Mathf.Clamp(pitch, settings.minPitch, settings.maxPitch);
