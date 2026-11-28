@@ -785,4 +785,19 @@ public class CubeRoller : MonoBehaviour
         stunUntil = float.PositiveInfinity;
         return true;
     }
+
+    // Moves the cube by offset without interrupting it: a tilt, dash or jump carries on from the
+    // new spot. It does not check for walls, so the caller has to. Does nothing while a skill
+    // controls the cube.
+    public void Shift(Vector3 offset)
+    {
+        if (IsControlled) return;
+
+        transform.position += offset;
+
+        // A tilt and a dash work out the position from a saved starting point every frame, so
+        // those points have to move too, or the cube would snap back.
+        tiltStartPos += offset;
+        dashStartPos += offset;
+    }
 }
